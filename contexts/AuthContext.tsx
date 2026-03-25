@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
     user: User | null;
@@ -37,19 +38,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const signIn = async (name: string, phone: string) => {
         try {
             if (!name || !phone) throw new Error('Nome e telefone são obrigatórios');
+            setLoading(true);
             
-            const newUser: User = {
-                name,
-                phone,
-                level: 'PRATA',
-                points: 0,
-                ordersCount: 0
+            // Consultar se o telefone já existe
+            let { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('phone', phone)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                throw error;
+            }
+
+            if (!profile) {
+                // Cadastrar novo perfil
+                const { data: newProfile, error: insertError } = await supabase
+                    .from('profiles')
+                    .insert([{ name, phone, level: 'BRONZE', points: 0, orders_count: 0 }])
+                    .select()
+                    .single();
+                
+                if (insertError) throw insertError;
+                profile = newProfile;
+            }
+
+            const activeUser: User = {
+                name: profile.name,
+                phone: profile.phone,
+                level: profile.level as any,
+                points: profile.points,
+                ordersCount: profile.orders_count,
+                isAdmin: profile.is_admin
             };
-            setUser(newUser);
-            localStorage.setItem('kd_user', JSON.stringify(newUser));
+
+            setUser(activeUser);
+            localStorage.setItem('kd_user', JSON.stringify(activeUser));
             return { error: null };
         } catch (error) {
+            console.error("Erro no signIn Supabase:", error);
             return { error };
+        } finally {
+            setLoading(false);
         }
     };
 

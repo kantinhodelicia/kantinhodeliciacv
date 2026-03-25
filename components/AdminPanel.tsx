@@ -12,6 +12,7 @@ import {
   Smartphone, ShieldX, HardDrive, History, Video,
   Gamepad2, Wrench, CreditCard
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export interface IPTVChannel {
   name: string;
@@ -81,17 +82,34 @@ const AdminPanel: React.FC<Props> = ({
     setTimeout(() => setAdminToast(null), 4000);
   };
 
-  const handleSaveStudio = () => {
+  const handleSaveStudio = async () => {
     onUpdateHeaderBg(tempHeaderBg);
     onUpdateStreamUrl(tempStreamUrl);
     onUpdateScheduledStartTime(tempStartTime);
-    showAdminToast("Direção do Studio atualizada!", "success");
+    try {
+      await supabase.from('store_settings').update({
+        header_bg: tempHeaderBg,
+        stream_url: tempStreamUrl,
+        scheduled_start: tempStartTime
+      }).eq('id', 1);
+      showAdminToast("Direção do Studio atualizada!", "success");
+    } catch (e) {
+      showAdminToast("Erro ao salvar no servidor", "error");
+    }
   };
 
-  const handleSaveOperations = () => {
+  const handleSaveOperations = async () => {
     onUpdateBoxPrice(tempBoxPrice);
     onUpdateMinOrder(tempMinOrder);
-    showAdminToast("Parâmetros de venda salvos!", "success");
+    try {
+      await supabase.from('store_settings').update({
+        box_price: tempBoxPrice,
+        min_order: tempMinOrder
+      }).eq('id', 1);
+      showAdminToast("Parâmetros de venda salvos!", "success");
+    } catch (e) {
+      showAdminToast("Erro ao salvar no servidor", "error");
+    }
   };
 
   const stats = useMemo(() => {
@@ -509,10 +527,13 @@ const AdminPanel: React.FC<Props> = ({
                        <div className="flex-1 flex justify-between items-start">
                           <h3 className="text-xl font-black text-white pr-4 leading-tight">{product.name}</h3>
                           <button 
-                            onClick={() => {
+                            onClick={async () => {
                               const updated = products.map(p => p.id === product.id ? { ...p, isActive: !p.isActive } : p);
                               onUpdateProducts(updated);
-                              showAdminToast(product.isActive ? 'Produto indisponível' : 'Produto ativado', product.isActive ? 'alert' : 'success');
+                              try {
+                                await supabase.from('products').update({ is_active: !product.isActive }).eq('id', product.id);
+                                showAdminToast(product.isActive ? 'Produto indisponível' : 'Produto ativado', product.isActive ? 'alert' : 'success');
+                              } catch(e) {}
                             }}
                             className={`w-12 h-6 flex-shrink-0 rounded-full relative transition-all ${product.isActive ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-800'}`}
                           >
@@ -543,10 +564,13 @@ const AdminPanel: React.FC<Props> = ({
                          <Edit2 className="w-3 h-3" /> Editar
                        </button>
                        <button 
-                         onClick={() => {
+                         onClick={async () => {
                            if(window.confirm("Deseja realmente excluir este produto permanentemente?")) {
                              onUpdateProducts(products.filter(p => p.id !== product.id));
-                             showAdminToast("Produto apagado", "info");
+                             try {
+                               await supabase.from('products').delete().eq('id', product.id);
+                               showAdminToast("Produto apagado", "info");
+                             } catch(e) {}
                            }
                          }}
                          className="px-4 py-3 bg-red-900/10 hover:bg-red-600 rounded-2xl text-red-500 hover:text-white transition-all flex items-center justify-center border border-red-500/20"
@@ -648,11 +672,14 @@ const AdminPanel: React.FC<Props> = ({
                               );
                            })}
                            <button
-                              onClick={() => {
+                              onClick={async () => {
                                  if(window.confirm(`Tem certeza que deseja cancelar o pedido de ${sale.customerName}?`)) {
                                     const updated = sales.map(s => s.id === sale.id ? { ...s, status: 'CANCELADO' as OrderStatus } : s);
                                     onUpdateSales(updated);
-                                    showAdminToast("Pedido cancelado", "alert");
+                                    try {
+                                      await supabase.from('orders').update({ status: 'CANCELADO' }).eq('id', sale.id);
+                                      showAdminToast("Pedido cancelado", "alert");
+                                    } catch(e) {}
                                  }
                               }}
                               className={`py-3 rounded-[14px] text-[9px] font-black uppercase tracking-widest transition-all ${sale.status === 'CANCELADO' ? 'bg-red-600 text-white' : 'bg-slate-950 text-red-500 border border-red-900/30 hover:bg-red-900/20'}`}
@@ -702,7 +729,7 @@ const AdminPanel: React.FC<Props> = ({
               {editingProduct ? 'Editar ' : 'Novo '}<span className="text-red-600">Produto</span>
             </h3>
             
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
               const name = formData.get('name') as string;
@@ -736,10 +763,23 @@ const AdminPanel: React.FC<Props> = ({
 
               if (editingProduct) {
                 onUpdateProducts(products.map(p => p.id === editingProduct.id ? newProduct : p));
-                showAdminToast("Produto atualizado com sucesso!", "success");
               } else {
                 onUpdateProducts([...products, newProduct]);
-                showAdminToast("Produto criado com sucesso!", "success");
+              }
+
+              try {
+                await supabase.from('products').upsert({
+                  id: newProduct.id,
+                  name: newProduct.name,
+                  description: newProduct.description,
+                  prices: newProduct.prices,
+                  category: newProduct.category,
+                  is_active: newProduct.isActive,
+                  image: newProduct.image
+                });
+                showAdminToast(editingProduct ? "Produto atualizado!" : "Produto criado!", "success");
+              } catch(e) {
+                showAdminToast("Erro ao salvar no banco", "error");
               }
               
               setIsAddingProduct(false);

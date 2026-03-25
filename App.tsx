@@ -14,6 +14,7 @@ import AdminPanel from './components/AdminPanel';
 import LiveModal from './components/LiveModal';
 import AuthWrapper from './components/Auth/AuthWrapper';
 import { ShoppingBag, Gamepad2, Sparkles, Award, Lock, ShieldAlert, X, Tv, MapPin, Pizza, Coffee } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const { user: authUser, loading: authLoading } = useAuth();
@@ -103,6 +104,59 @@ const App: React.FC = () => {
   const [halfMode, setHalfMode] = useState<boolean>(false);
   const [halfSelection, setHalfSelection] = useState<{ left?: Product; right?: Product }>({});
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+  useEffect(() => {
+    async function fetchSupabaseData() {
+      try {
+        const { data: settings } = await supabase.from('store_settings').select('*').single();
+        if (settings) {
+          if (settings.header_bg) setHeaderBg(settings.header_bg);
+          if (settings.stream_url) setStreamUrl(settings.stream_url);
+          if (settings.scheduled_start) setScheduledStartTime(settings.scheduled_start);
+          if (settings.box_price) setBoxPrice(settings.box_price);
+          if (settings.min_order) setMinOrder(settings.min_order);
+          if (settings.categories) setCategories(settings.categories);
+          if (settings.zones) setZones(settings.zones);
+        }
+
+        const { data: prods } = await supabase.from('products').select('*');
+        if (prods && prods.length > 0) {
+          const formattedProducts: Product[] = prods.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            prices: p.prices as Record<string, number>,
+            category: p.category,
+            isActive: p.is_active,
+            image: p.image
+          }));
+          setProducts(formattedProducts);
+        }
+
+        const { data: ords } = await supabase.from('orders').select('*').order('timestamp', { ascending: false });
+        if (ords && ords.length > 0) {
+          const formattedOrders: SaleRecord[] = ords.map(o => ({
+            id: o.id,
+            timestamp: o.timestamp,
+            total: o.total,
+            itemsCount: o.items ? o.items.length : 0,
+            itemsDetail: o.items_detail,
+            items: o.items as CartItem[],
+            customerName: o.customer_name,
+            customerPhone: o.customer_phone,
+            zoneName: o.zone_name,
+            status: o.status as OrderStatus,
+            paymentMethod: o.payment_method as any,
+            notes: o.notes
+          }));
+          setSales(formattedOrders);
+        }
+      } catch (err) {
+        console.error("Error fetching from Supabase:", err);
+      }
+    }
+    fetchSupabaseData();
+  }, []);
 
   // Sync Supabase auth user with local state
   useEffect(() => {
@@ -203,14 +257,16 @@ const App: React.FC = () => {
     showToast(`${product.name} no carrinho!`, 'success');
   }, [showToast]);
 
-  const finalizeOrder = useCallback((orderTotal: number) => {
+  const finalizeOrder = useCallback(async (orderTotal: number) => {
     if (!user) return;
 
     const itemsDetail = cart.map(i => `${i.quantity}x ${i.name}`).join(', ');
+    const newId = `sale-${Date.now()}`;
+    const timestamp = Date.now();
 
     const newSale: SaleRecord = {
-      id: `sale-${Date.now()}`,
-      timestamp: Date.now(),
+      id: newId,
+      timestamp,
       total: orderTotal,
       itemsCount: cart.length,
       itemsDetail: itemsDetail,
@@ -225,15 +281,38 @@ const App: React.FC = () => {
 
     setSales(prev => [newSale, ...prev]);
 
-    const newPoints = user.points + 25;
-    const newCount = user.ordersCount + 1;
-    let newLevel = user.level;
+    try {
+      await supabase.from('orders').insert([{
+         id: newId,
+         customer_name: user.name,
+         customer_phone: user.phone,
+         items: cart,
+         items_detail: itemsDetail,
+         total: orderTotal,
+         status: 'RECEBIDO',
+         zone_name: selectedZone?.name || 'Retirada',
+         payment_method: 'DINHEIRO',
+         notes: orderNotes,
+         timestamp
+      }]);
+      
+      const newPoints = user.points + 25;
+      const newCount = user.ordersCount + 1;
+      let newLevel = user.level;
+      if (newPoints >= 500) newLevel = 'DIAMANTE';
+      else if (newPoints >= 250) newLevel = 'OURO';
+      else if (newPoints >= 100) newLevel = 'PRATA';
+      
+      await supabase.from('profiles').update({
+         points: newPoints,
+         orders_count: newCount,
+         level: newLevel
+      }).eq('phone', user.phone);
 
-    if (newPoints >= 500) newLevel = 'DIAMANTE';
-    else if (newPoints >= 250) newLevel = 'OURO';
-    else if (newPoints >= 100) newLevel = 'PRATA';
-
-    setUser(prev => prev ? { ...prev, points: newPoints, ordersCount: newCount, level: newLevel } : null);
+      setUser(prev => prev ? { ...prev, points: newPoints, ordersCount: newCount, level: newLevel } : null);
+    } catch (e) {
+      console.error("Erro ao salvar pedido no Supabase", e);
+    }
 
     setCart([]);
     setOrderNotes('');
