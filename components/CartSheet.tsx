@@ -1,0 +1,317 @@
+
+import React, { useState } from 'react';
+import { CartItem, DeliveryZone, User, Extra } from '../types';
+import { EXTRAS } from '../constants';
+import { X, Trash2, Plus, Minus, Printer, MessageCircle, CheckCircle2, ShoppingBag, PlusCircle, MinusCircle, FileText, MapPin, ChevronDown, ChevronUp, Sparkles, Package, Info, AlertCircle } from 'lucide-react';
+
+interface Props {
+  cart: CartItem[];
+  zone: DeliveryZone | null;
+  notes: string;
+  onNotesChange: (notes: string) => void;
+  onClose: () => void;
+  onUpdateQty: (uid: string, delta: number) => void;
+  onRemove: (uid: string) => void;
+  onToggleExtra: (uid: string, extra: Extra) => void;
+  clearCart: () => void;
+  user: User;
+  onOrderComplete?: (total: number) => void;
+  boxPrice?: number;
+  minOrder?: number;
+}
+
+const CartSheet: React.FC<Props> = ({ cart, zone, notes, onNotesChange, onClose, onUpdateQty, onRemove, onToggleExtra, clearCart, user, onOrderComplete, boxPrice = 100, minOrder = 0 }) => {
+  const [expandedExtras, setExpandedExtras] = useState<Set<string>>(new Set());
+
+  const toggleExtrasVisibility = (uid: string) => {
+    setExpandedExtras(prev => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  };
+
+  const subtotal = cart.reduce((acc, item) => {
+    const extrasPrice = item.extras.reduce((sum, e) => sum + e.price, 0);
+    return acc + ((item.price + extrasPrice) * item.quantity);
+  }, 0);
+  
+  const boxesPrice = cart.reduce((acc, item) => item.needsBox ? acc + (boxPrice * item.quantity) : acc, 0);
+  const deliveryPrice = zone?.price || 0;
+  const total = subtotal + boxesPrice + deliveryPrice;
+  
+  const isBelowMin = total < minOrder;
+
+  const handlePrint = () => {
+    const printArea = document.getElementById('print-area');
+    if (!printArea) return;
+
+    const date = new Date().toLocaleDateString('pt-PT');
+    const time = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
+    const itemsHtml = cart.map(item => `
+      <div style="margin-bottom: 6px; border-bottom: 1px dotted #000; padding-bottom: 3px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;">
+          <span>${item.quantity}x ${item.name} (${item.size})</span>
+          <span>${(item.price + item.extras.reduce((s, e) => s + e.price, 0)) * item.quantity}$</span>
+        </div>
+        ${item.extras.length > 0 ? `
+          <div style="font-size: 11px; margin-left: 10px;">
+            ${item.extras.map(e => `+ ${e.name}`).join(', ')}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+
+    printArea.innerHTML = `
+      <div style="font-family: 'Courier New', Courier, monospace; color: black; line-height: 1.2; width: 100%; max-width: 80mm;">
+        <div style="text-align: center; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 10px;">
+          <h2 style="margin: 0; font-size: 18px;">KANTINHO DELÍCIA</h2>
+          <p style="font-size: 11px; margin: 3px 0;">RECIBO DE CONFERÊNCIA</p>
+          <p style="font-size: 10px; margin: 0;">${date} | ${time}</p>
+        </div>
+        
+        <div style="font-size: 12px; margin-bottom: 10px;">
+          <b>CLIENTE:</b> ${user.name}<br>
+          <b>ZONA:</b> ${zone?.name || 'RETIRADA'}<br>
+          <b>TEL:</b> ${user.phone}
+        </div>
+
+        <div style="border-bottom: 1px dashed black; padding-bottom: 10px; margin-bottom: 10px;">
+          <div style="font-weight: bold; font-size: 12px; margin-bottom: 5px;">RESUMO DO PEDIDO:</div>
+          ${itemsHtml}
+        </div>
+
+        ${notes ? `
+        <div style="font-size: 11px; border: 1px solid black; padding: 5px; margin-bottom: 10px;">
+          <b>OBSERVAÇÕES:</b><br>${notes}
+        </div>` : ''}
+
+        <div style="font-size: 13px;">
+          <div style="display: flex; justify-content: space-between;"><span>SUBTOTAL:</span> <span>${subtotal}$</span></div>
+          ${boxesPrice > 0 ? `<div style="display: flex; justify-content: space-between;"><span>EMBALAGENS:</span> <span>${boxesPrice}$</span></div>` : ''}
+          <div style="display: flex; justify-content: space-between;"><span>ENTREGA:</span> <span>${deliveryPrice}$</span></div>
+          
+          <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; border-top: 2px solid black; padding-top: 5px; margin-top: 8px;">
+            <span>TOTAL:</span>
+            <span>${total}$</span>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px; font-size: 11px; border-top: 1px solid #000; padding-top: 10px;">
+          OBRIGADO PELA PREFERÊNCIA!<br>
+          Siga-nos: @kantinhodelicia
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
+
+  const handleWhatsApp = () => {
+    if (isBelowMin) return;
+
+    let msg = `*🍔 NOVO PEDIDO - KANTINHO DELÍCIA*\n`;
+    msg += `--------------------------------\n`;
+    msg += `👤 *Cliente:* ${user.name}\n`;
+    msg += `📞 *WhatsApp:* ${user.phone}\n`;
+    msg += `📍 *Zona:* ${zone ? zone.name : 'Retirada no Balcão'}\n`;
+    msg += `--------------------------------\n\n`;
+    
+    cart.forEach(item => {
+      msg += `✅ *${item.quantity}x ${item.name}* (${item.size})\n`;
+      if (item.extras.length > 0) {
+        msg += `  └ _Extras: ${item.extras.map(e => e.name).join(', ')}_\n`;
+      }
+      msg += `  💰 Valor: ${(item.price + item.extras.reduce((s,e) => s+e.price, 0)) * item.quantity}$\n\n`;
+    });
+
+    if (notes.trim()) {
+      msg += `--------------------------------\n`;
+      msg += `📝 *Observações:* ${notes}\n`;
+    }
+
+    msg += `--------------------------------\n`;
+    if (boxesPrice > 0) msg += `📦 *Caixas:* ${boxesPrice}$\n`;
+    if (zone) msg += `🚚 *Entrega:* ${deliveryPrice}$\n`;
+    msg += `\n🔥 *TOTAL A PAGAR: ${total}$*\n`;
+    msg += `--------------------------------`;
+
+    const url = `https://wa.me/2385999204?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+    
+    if (onOrderComplete) onOrderComplete(total);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex justify-end no-print">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      
+      <div className="relative w-full max-w-lg bg-slate-950 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+        <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/50">
+          <div>
+            <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+              <ShoppingBag className="w-6 h-6 text-red-500" />
+              CARRINHO
+            </h2>
+            <p className="text-slate-400 text-sm">{cart.length} itens selecionados</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {cart.length > 0 && (
+              <button 
+                onClick={clearCart}
+                className="p-3 bg-slate-800/50 text-slate-400 hover:text-red-500 rounded-full transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4"
+              >
+                <Trash2 className="w-4 h-4" /> Limpar
+              </button>
+            )}
+            <button onClick={onClose} className="p-3 hover:bg-slate-800 rounded-full transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {cart.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 text-center px-10">
+              <div className="w-24 h-24 bg-slate-900/40 rounded-full flex items-center justify-center mb-6 border border-slate-800">
+                <ShoppingBag className="w-10 h-10 opacity-10" />
+              </div>
+              <p className="font-black text-xl text-slate-100 mb-2 uppercase tracking-tighter">Nada por aqui...</p>
+              <p className="text-sm text-slate-400">Escolha seus sabores favoritos para começar.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {isBelowMin && (
+                <div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-3xl flex items-center gap-4 mb-4 animate-pulse">
+                  <AlertCircle className="w-6 h-6 text-amber-500 flex-shrink-0" />
+                  <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-relaxed">
+                    Pedido mínimo para entrega: {minOrder}$. Falta {(minOrder - total)}$ para completar.
+                  </p>
+                </div>
+              )}
+
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-2">Itens do Pedido</p>
+              {cart.map((item) => {
+                const itemExtrasTotal = item.extras.reduce((sum, e) => sum + e.price, 0);
+                const unitPrice = item.price + itemExtrasTotal;
+                const isExpanded = expandedExtras.has(item.uniqueId);
+                
+                return (
+                  <div key={item.uniqueId} className="bg-slate-900/30 border border-slate-800 rounded-[32px] p-5 hover:bg-slate-900/50 transition-colors">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-black text-lg text-slate-100 leading-tight">{item.name}</h3>
+                          <span className="bg-red-600/10 text-red-500 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-500/10 uppercase">{item.size}</span>
+                          {item.needsBox && (
+                            <span className="text-slate-500 flex items-center gap-1" title={`Requer Caixa (+${boxPrice}$)`}>
+                              <Package className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                        </div>
+                        {item.extras.length > 0 && (
+                          <button 
+                            onClick={() => toggleExtrasVisibility(item.uniqueId)}
+                            className="flex items-center gap-1.5 text-[9px] font-black text-blue-500 uppercase tracking-widest mt-1"
+                          >
+                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {item.extras.length} extras adicionados
+                          </button>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => onRemove(item.uniqueId)} 
+                        className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {isExpanded && item.extras.length > 0 && (
+                      <div className="mb-4 space-y-2 p-3 bg-black/20 rounded-2xl border border-white/5 animate-in slide-in-from-top-1">
+                        {item.extras.map((extra, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                            <span>+ {extra.name}</span>
+                            <span>{extra.price}$</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center bg-slate-950/40 rounded-2xl p-1 border border-slate-800/50">
+                        <button onClick={() => onUpdateQty(item.uniqueId, -1)} className="p-2 text-slate-500"><Minus className="w-3.5 h-3.5" /></button>
+                        <span className="w-10 text-center font-black text-slate-200">{item.quantity}</span>
+                        <button onClick={() => onUpdateQty(item.uniqueId, 1)} className="p-2 text-slate-500"><Plus className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-black text-xl text-slate-100">{(unitPrice * item.quantity)}$</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="space-y-3 pt-6">
+                <div className="flex items-center justify-between ml-2">
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Instruções Especiais</p>
+                  <Info className="w-3 h-3 text-slate-700" />
+                </div>
+                <textarea 
+                  value={notes}
+                  onChange={(e) => onNotesChange(e.target.value)}
+                  placeholder="Ex: Tirar cebola, trocar ingrediente, ponto da massa..."
+                  className="w-full bg-slate-900/50 border border-slate-800 rounded-3xl p-5 text-slate-300 text-sm h-24 resize-none outline-none focus:border-red-600 transition-colors placeholder:text-slate-600 font-medium"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-8 bg-slate-900 border-t border-slate-800 space-y-6 rounded-t-[48px] shadow-2xl">
+          <div className="space-y-2">
+            <div className="flex justify-between text-slate-500 text-[10px] font-black uppercase tracking-widest">
+              <span>Subtotal</span>
+              <span>{subtotal}$</span>
+            </div>
+            {boxesPrice > 0 && (
+              <div className="flex justify-between text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                <span>Embalagens ({cart.filter(i => i.needsBox).reduce((a,b) => a+b.quantity, 0)} Caixas)</span>
+                <span>{boxesPrice}$</span>
+              </div>
+            )}
+            <div className="flex justify-between text-slate-500 text-[10px] font-black uppercase tracking-widest">
+              <span>Taxa de Entrega</span>
+              <span>{zone ? `${deliveryPrice}$` : '--'}</span>
+            </div>
+            <div className="flex justify-between items-end pt-5 mt-2 border-t border-slate-800">
+              <span className="text-4xl font-black text-white tracking-tighter">{total}<span className="text-red-600">$</span></span>
+              <button 
+                onClick={handlePrint} 
+                disabled={cart.length === 0}
+                className="p-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 rounded-2xl text-slate-400 hover:text-white transition-all"
+                title="Imprimir Cupom"
+              >
+                <Printer className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <button 
+            onClick={handleWhatsApp}
+            disabled={cart.length === 0 || isBelowMin}
+            className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black py-5 rounded-3xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl shadow-green-900/20"
+          >
+            <MessageCircle className="w-6 h-6" /> {isBelowMin ? 'VALOR MÍNIMO NÃO ATINGIDO' : 'ENVIAR PEDIDO AGORA'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CartSheet;

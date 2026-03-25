@@ -1,0 +1,8 @@
+{
+  "name": "Kantinho Delícia Premium",
+  "description": "A sophisticated digital menu and ordering system for Kantinho Delícia Pizzeria, featuring half-and-half customization, delivery zone selection, and an integrated retro gaming experience.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
