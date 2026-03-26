@@ -320,29 +320,6 @@ const App: React.FC = () => {
          notes: orderNotes,
          timestamp
       }]);
-      
-      const newPoints = user.points + 25;
-      const newCount = user.ordersCount + 1;
-      let newLevel = user.level;
-      if (newPoints >= 500) newLevel = 'DIAMANTE';
-      else if (newPoints >= 250) newLevel = 'OURO';
-      else if (newPoints >= 100) newLevel = 'PRATA';
-      
-      await supabase.from('profiles').update({
-         points: newPoints,
-         orders_count: newCount,
-         level: newLevel
-      }).eq('phone', user.phone);
-
-      setUser(prev => prev ? { ...prev, points: newPoints, ordersCount: newCount, level: newLevel } : null);
-      
-      const isLevelUp = newLevel !== user.level;
-      setSuccessOrder({
-        earnedPoints: 25,
-        totalPoints: newPoints,
-        newLevel: newLevel,
-        isLevelUp: isLevelUp
-      });
     } catch (e) {
       console.error("Erro ao salvar pedido no Supabase", e);
     }
@@ -351,7 +328,8 @@ const App: React.FC = () => {
     setOrderNotes('');
     localStorage.removeItem('kd_notes');
     setIsCartOpen(false);
-  }, [user, cart, selectedZone, orderNotes]);
+    showToast('Pedido enviado com sucesso!', 'success');
+  }, [user, cart, selectedZone, orderNotes, showToast]);
 
   const halfPrice = useMemo(() => {
     const priceLeft = halfSelection.left?.prices[selectedSize] || 0;

@@ -694,10 +694,39 @@ const AdminPanel: React.FC<Props> = ({
                               return (
                                 <button
                                    key={status}
-                                   onClick={() => {
+                                   onClick={async () => {
                                       const updated = sales.map(s => s.id === sale.id ? { ...s, status: status as OrderStatus } : s);
                                       onUpdateSales(updated);
-                                      showAdminToast(`Pedido atualizado para ${status}`, "success");
+                                      
+                                      try {
+                                        await supabase.from('orders').update({ status }).eq('id', sale.id);
+                                        
+                                        if (status === 'CONCLUIDO' && sale.customerPhone && !isCurrent) {
+                                           const { data: profile } = await supabase.from('profiles').select('*').eq('phone', sale.customerPhone).single();
+                                           if (profile) {
+                                              const earnedPoints = Math.floor((sale.total || 0) * 0.1) || 25;
+                                              const newPoints = profile.points + earnedPoints;
+                                              const newCount = profile.orders_count + 1;
+                                              let newLevel = profile.level;
+                                              if (newPoints >= 500) newLevel = 'DIAMANTE';
+                                              else if (newPoints >= 250) newLevel = 'OURO';
+                                              else if (newPoints >= 100) newLevel = 'PRATA';
+                                              
+                                              await supabase.from('profiles').update({
+                                                 points: newPoints,
+                                                 orders_count: newCount,
+                                                 level: newLevel
+                                              }).eq('phone', sale.customerPhone);
+                                              
+                                              showAdminToast(`Pedido CONCLUÍDO. O cliente ganhou +${earnedPoints} Sabor Coins!`, "success");
+                                              return;
+                                           }
+                                        }
+                                        showAdminToast(`Pedido atualizado para ${status}`, "success");
+                                      } catch(e) {
+                                        console.error('Falha ao atualizar status', e);
+                                        showAdminToast("Erro ao conectar no sistema", "error");
+                                      }
                                    }}
                                    className={`py-3 rounded-[14px] text-[9px] font-black uppercase tracking-widest transition-all ${
                                       isCurrent ? `${colors[status]} shadow-[0_4px_20px_rgba(0,0,0,0.3)] ring-2 ring-white/10 scale-105` : 'bg-slate-950 border border-slate-800 text-slate-500 hover:bg-slate-800'
