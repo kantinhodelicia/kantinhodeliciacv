@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Gamepad2, Play, Trophy, RotateCcw, Zap, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pizza, Flame, Beer, Star } from 'lucide-react';
+import { X, Gamepad2, Play, Trophy, RotateCcw, Zap, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pizza, Flame, Beer, Star, Maximize } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
@@ -47,6 +47,8 @@ const GameModal: React.FC<Props> = ({ onClose }) => {
   const [speed, setSpeed] = useState(130);
   const [isCaliente, setIsCaliente] = useState(false);
   const [shake, setShake] = useState(0);
+  
+  const touchStartRef = useRef<{x: number, y: number} | null>(null);
 
   const gridSize = 20;
   const initialSnake = [{ x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 }];
@@ -156,6 +158,23 @@ const GameModal: React.FC<Props> = ({ onClose }) => {
     setIsPlaying(true);
     particlesRef.current = [];
     floatingTextsRef.current = [];
+  };
+
+  const toggleFullScreen = () => {
+    const el = document.documentElement;
+    if (!document.fullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if ((el as any).webkitRequestFullscreen) {
+        (el as any).webkitRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+    }
   };
 
   const handleGameOver = useCallback(() => {
@@ -391,6 +410,20 @@ const GameModal: React.FC<Props> = ({ onClose }) => {
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const diffX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const diffY = e.changedTouches[0].clientY - touchStartRef.current.y;
+    if (Math.abs(diffX) < 30 && Math.abs(diffY) < 30) return;
+    if (Math.abs(diffX) > Math.abs(diffY)) setDirection(diffX > 0 ? 1 : -1, 0);
+    else setDirection(0, diffY > 0 ? 1 : -1);
+    touchStartRef.current = null;
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={onClose}></div>
@@ -415,18 +448,29 @@ const GameModal: React.FC<Props> = ({ onClose }) => {
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-3 bg-slate-800/50 hover:bg-red-600 hover:text-white rounded-2xl transition-all text-slate-400">
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex gap-2">
+            <button onClick={toggleFullScreen} className="p-3 bg-slate-800/50 hover:bg-blue-600 hover:text-white rounded-2xl transition-all text-slate-400 md:hidden group" title="Tela Cheia">
+              <Maximize className="w-6 h-6 group-active:scale-95 transition-transform" />
+            </button>
+            <button onClick={onClose} className="p-3 bg-slate-800/50 hover:bg-red-600 hover:text-white rounded-2xl transition-all text-slate-400">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-8 flex flex-col items-center gap-8">
-          <div className="relative">
+        <div className="p-4 md:p-8 flex flex-col items-center gap-4 md:gap-8 overflow-y-auto max-h-[80vh] md:max-h-none no-scrollbar">
+          <div 
+            className="relative w-full max-w-[400px] aspect-square mx-auto touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            style={{ touchAction: 'none' }}
+          >
             <canvas 
               ref={canvasRef} 
               width={400} 
               height={400} 
-              className={`bg-slate-950 rounded-[32px] border-8 shadow-2xl transition-colors duration-500 ${isCaliente ? 'border-red-900' : 'border-slate-800'}`}
+              className={`w-full h-full bg-slate-950 rounded-2xl md:rounded-[32px] border-4 md:border-8 shadow-2xl transition-colors duration-500 block ${isCaliente ? 'border-red-900' : 'border-slate-800'}`}
+              style={{ paddingBottom: '0.1px' }}
             />
 
             {!isPlaying && !isGameOver && (
@@ -492,13 +536,8 @@ const GameModal: React.FC<Props> = ({ onClose }) => {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4 w-full max-w-[280px] md:hidden">
-            <div />
-            <button onTouchStart={() => setDirection(0, -1)} className="aspect-square bg-slate-800 rounded-3xl flex items-center justify-center text-white active:bg-red-600 shadow-xl border border-slate-700"><ChevronUp className="w-10 h-10" /></button>
-            <div />
-            <button onTouchStart={() => setDirection(-1, 0)} className="aspect-square bg-slate-800 rounded-3xl flex items-center justify-center text-white active:bg-red-600 shadow-xl border border-slate-700"><ChevronLeft className="w-10 h-10" /></button>
-            <button onTouchStart={() => setDirection(0, 1)} className="aspect-square bg-slate-800 rounded-3xl flex items-center justify-center text-white active:bg-red-600 shadow-xl border border-slate-700"><ChevronDown className="w-10 h-10" /></button>
-            <button onTouchStart={() => setDirection(1, 0)} className="aspect-square bg-slate-800 rounded-3xl flex items-center justify-center text-white active:bg-red-600 shadow-xl border border-slate-700"><ChevronRight className="w-10 h-10" /></button>
+          <div className="md:hidden text-center mt-2 animate-pulse mt-8">
+             <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest leading-tight">Deslize o dedo na tela da pizza para controlar!</span>
           </div>
 
           <p className="hidden md:block text-[10px] text-slate-600 font-black uppercase tracking-[0.3em] opacity-50 animate-pulse">Use as setas para dominar a cozinha</p>
