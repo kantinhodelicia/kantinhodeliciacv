@@ -120,7 +120,7 @@ const ChatBot: React.FC = () => {
           'X-Title': 'Kantinho Delícia Premium'
         },
         body: JSON.stringify({
-          model: 'mistralai/mistral-7b-instruct',
+          model: 'meta-llama/llama-3-8b-instruct:free',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -132,18 +132,25 @@ const ChatBot: React.FC = () => {
       });
 
       const data = await response.json();
-      const assistantText = data.choices?.[0]?.message?.content || 'Desculpa, houve um problema. Tente novamente! 🍕';
+      
+      if (data.error) {
+        console.error("OpenRouter API Error:", data.error);
+        throw new Error(data.error.message || 'Erro na API');
+      }
+
+      const assistantText = data.choices?.[0]?.message?.content || 'Desculpa, não entendi. 🍕';
       
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'assistant',
         content: assistantText
       }]);
-    } catch (err) {
+    } catch (err: any) {
+      console.error(err);
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'assistant',
-        content: 'Ops! Tive um problema a conectar. Tente novamente ou fale connosco pelo WhatsApp! 🍕'
+        content: `Ops! Problema de conexão: ${err.message || 'Tente novamente em instantes'}. 🍕`
       }]);
     } finally {
       setIsLoading(false);
