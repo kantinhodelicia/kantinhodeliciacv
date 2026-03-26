@@ -565,6 +565,7 @@ const App: React.FC = () => {
       {isCartOpen && (
         <CartSheet
           cart={cart}
+          products={products}
           zone={selectedZone}
           notes={orderNotes}
           onNotesChange={setOrderNotes}
@@ -577,6 +578,7 @@ const App: React.FC = () => {
           onOrderComplete={finalizeOrder}
           boxPrice={boxPrice}
           minOrder={minOrder}
+          onAddProduct={addToCart}
         />
       )}
 

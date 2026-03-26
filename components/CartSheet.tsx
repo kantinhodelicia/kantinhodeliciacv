@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
-import { CartItem, DeliveryZone, User, Extra } from '../types';
+import React, { useState, useMemo } from 'react';
+import { CartItem, DeliveryZone, User, Extra, Product } from '../types';
 import { EXTRAS } from '../constants';
-import { X, Trash2, Plus, Minus, Printer, MessageCircle, CheckCircle2, ShoppingBag, PlusCircle, MinusCircle, FileText, MapPin, ChevronDown, ChevronUp, Sparkles, Package, Info, AlertCircle } from 'lucide-react';
+import { X, Trash2, Plus, Minus, Printer, MessageCircle, CheckCircle2, ShoppingBag, PlusCircle, MinusCircle, FileText, MapPin, ChevronDown, ChevronUp, Sparkles, Package, Info, AlertCircle, Zap, ArrowRight } from 'lucide-react';
 
 interface Props {
   cart: CartItem[];
+  products: Product[];
   zone: DeliveryZone | null;
   notes: string;
   onNotesChange: (notes: string) => void;
@@ -18,10 +19,27 @@ interface Props {
   onOrderComplete?: (total: number) => void;
   boxPrice?: number;
   minOrder?: number;
+  onAddProduct?: (product: Product, size: string) => void;
 }
 
-const CartSheet: React.FC<Props> = ({ cart, zone, notes, onNotesChange, onClose, onUpdateQty, onRemove, onToggleExtra, clearCart, user, onOrderComplete, boxPrice = 100, minOrder = 0 }) => {
+const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange, onClose, onUpdateQty, onRemove, onToggleExtra, clearCart, user, onOrderComplete, boxPrice = 100, minOrder = 0, onAddProduct }) => {
   const [expandedExtras, setExpandedExtras] = useState<Set<string>>(new Set());
+
+  const hasPizza = cart.some(i => i.needsBox);
+  const hasDrink = cart.some(i => !i.needsBox);
+
+  const upsellItems = useMemo(() => {
+    const cartIds = new Set(cart.map(i => i.id));
+    // If cart has pizza but no drinks, suggest drinks
+    if (hasPizza && !hasDrink) {
+      return products.filter(p => p.category === 'BEBIDAS' && p.isActive && !cartIds.has(p.id)).slice(0, 3);
+    }
+    // If cart has drinks but no pizza, suggest pizzas
+    if (hasDrink && !hasPizza) {
+      return products.filter(p => p.category === 'PIZZAS' && p.isActive && !cartIds.has(p.id)).slice(0, 3);
+    }
+    return [];
+  }, [cart, products, hasPizza, hasDrink]);
 
   const toggleExtrasVisibility = (uid: string) => {
     setExpandedExtras(prev => {
@@ -255,6 +273,41 @@ const CartSheet: React.FC<Props> = ({ cart, zone, notes, onNotesChange, onClose,
                   </div>
                 );
               })}
+
+              {/* Upsell Inteligente */}
+              {upsellItems.length > 0 && onAddProduct && (
+                <div className="pt-4">
+                  <div className="flex items-center gap-2 mb-4 ml-2">
+                    <Zap className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
+                    <p className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em]">
+                      {hasPizza && !hasDrink ? 'Adicionar Bebida?' : 'Que tal uma pizza?'}
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {upsellItems.map(item => {
+                      const defaultSize = Object.keys(item.prices)[0];
+                      const price = item.prices[defaultSize];
+                      return (
+                        <div key={item.id} className="flex items-center gap-4 p-4 bg-slate-900/30 border border-yellow-500/10 rounded-[24px] hover:border-yellow-500/30 transition-all group animate-in fade-in duration-300">
+                          <div className="w-11 h-11 bg-slate-800 rounded-2xl flex items-center justify-center text-xl flex-shrink-0">
+                            {item.category === 'BEBIDAS' ? '🥤' : '🍕'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-white truncate">{item.name}</p>
+                            <p className="text-[10px] text-yellow-500 font-bold mt-0.5">{price}$</p>
+                          </div>
+                          <button
+                            onClick={() => onAddProduct(item, defaultSize)}
+                            className="p-2.5 bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-black rounded-xl transition-all border border-yellow-500/20 hover:border-yellow-500 active:scale-95 flex-shrink-0"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3 pt-6">
                 <div className="flex items-center justify-between ml-2">
