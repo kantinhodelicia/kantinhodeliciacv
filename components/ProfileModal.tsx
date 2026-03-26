@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, Award, History, Gift, ShieldCheck, ChevronRight, 
   Star, Zap, Crown, Target, Medal, Heart, Coffee, UtensilsCrossed,
-  ShieldAlert
+  ShieldAlert, Receipt
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { SaleRecord } from '../types';
 
 interface Props {
   user: any;
@@ -12,10 +14,52 @@ interface Props {
   onOpenAdmin: () => void;
 }
 
-type TabType = 'RESUMO' | 'BENEFICIOS' | 'CONQUISTAS';
+type TabType = 'RESUMO' | 'HISTORICO' | 'BENEFICIOS' | 'CONQUISTAS';
 
 const ProfileModal: React.FC<Props> = ({ user, onClose, onOpenAdmin }) => {
   const [activeTab, setActiveTab] = useState<TabType>('RESUMO');
+  const [pastOrders, setPastOrders] = useState<SaleRecord[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'HISTORICO') {
+      fetchOrders();
+    }
+  }, [activeTab]);
+
+  const fetchOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('customer_phone', user.phone)
+        .order('timestamp', { ascending: false })
+        .limit(10);
+      
+      if (data && !error) {
+        const formatted = data.map(d => ({
+          id: d.id,
+          customerName: d.customer_name,
+          customerPhone: d.customer_phone,
+          itemsDetail: d.items_detail,
+          total: d.total,
+          status: d.status,
+          paymentMethod: d.payment_method,
+          timestamp: d.timestamp,
+          zoneName: d.zone_name,
+          customerAddress: d.customer_address || '',
+          notes: d.notes || '',
+          isCaliente: d.is_caliente || false
+        }));
+        setPastOrders(formatted);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
   
   const pointsToNextLevel = 100 - (user.points % 100);
   const progress = (user.points % 100);
@@ -116,16 +160,16 @@ const ProfileModal: React.FC<Props> = ({ user, onClose, onOpenAdmin }) => {
           </div>
 
           {/* Navegação por Abas */}
-          <div className="flex bg-slate-900/50 p-1.5 rounded-[24px] border border-slate-800 mb-8">
-            {(['RESUMO', 'BENEFICIOS', 'CONQUISTAS'] as TabType[]).map(tab => (
+          <div className="flex bg-slate-900/50 p-1.5 rounded-[24px] border border-slate-800 mb-8 overflow-x-auto scrollbar-hide">
+            {(['RESUMO', 'HISTORICO', 'BENEFICIOS', 'CONQUISTAS'] as TabType[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                className={`flex-1 min-w-[70px] py-3 px-1 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
                   activeTab === tab ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
-                {tab === 'RESUMO' ? 'Resumo' : tab === 'BENEFICIOS' ? 'Níveis' : 'Badges'}
+                {tab === 'RESUMO' ? 'Resumo' : tab === 'HISTORICO' ? 'Pedidos' : tab === 'BENEFICIOS' ? 'Níveis' : 'Badges'}
               </button>
             ))}
           </div>
@@ -171,6 +215,47 @@ const ProfileModal: React.FC<Props> = ({ user, onClose, onOpenAdmin }) => {
               </div>
             )}
 
+            {activeTab === 'HISTORICO' && (
+              <div className="space-y-4 max-h-[360px] overflow-y-auto pr-2 scrollbar-hide animate-in fade-in duration-300">
+                 {loadingOrders ? (
+                    <div className="flex justify-center py-12"><div className="w-8 h-8 rounded-full border-t-2 border-red-500 animate-spin"></div></div>
+                 ) : pastOrders.length === 0 ? (
+                    <div className="text-center py-12 opacity-50 bg-slate-900/20 rounded-[32px] border border-slate-800">
+                       <Receipt className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+                       <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Nenhum Pedido</p>
+                       <p className="text-[10px] text-slate-500 mt-1">Faça seu primeiro pedido agora!</p>
+                    </div>
+                 ) : pastOrders.map(order => {
+                    const statusColors: Record<string, string> = {
+                      'RECEBIDO': 'text-slate-300 bg-slate-800 border-slate-700',
+                      'PREPARO': 'text-yellow-400 bg-yellow-400/10 border-yellow-500/20',
+                      'PRONTO': 'text-orange-400 bg-orange-400/10 border-orange-500/20',
+                      'ENTREGUE': 'text-blue-400 bg-blue-400/10 border-blue-500/20',
+                      'CONCLUIDO': 'text-emerald-400 bg-emerald-400/10 border-emerald-500/20',
+                      'CANCELADO': 'text-red-400 bg-red-400/10 border-red-500/20'
+                    };
+                    return (
+                      <div key={order.id} className="bg-slate-900/40 border border-slate-800 rounded-[28px] p-6 hover:border-slate-700 transition-colors group relative overflow-hidden">
+                         <div className="flex justify-between items-start mb-4">
+                            <div>
+                               <p className="text-[10px] font-black tracking-widest text-slate-500 mb-1.5 flex items-center gap-2">
+                                  <History className="w-3 h-3" /> {new Date(order.timestamp).toLocaleDateString()}
+                               </p>
+                               <span className={`px-2.5 py-1 flex items-center gap-1.5 rounded-[10px] text-[9px] font-black uppercase tracking-widest w-fit border ${statusColors[order.status] || statusColors['RECEBIDO']}`}>
+                                 <div className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></div> {order.status}
+                               </span>
+                            </div>
+                            <div className="text-right">
+                               <p className="text-xs md:text-sm font-black text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">${order.total}</p>
+                            </div>
+                         </div>
+                         <p className="text-[11px] text-slate-300 font-medium leading-relaxed bg-slate-950/50 p-4 rounded-[20px] border border-slate-800/50">{order.itemsDetail}</p>
+                      </div>
+                    );
+                 })}
+              </div>
+            )}
+
             {activeTab === 'BENEFICIOS' && (
               <div className="space-y-6">
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Vantagens do Nível {user.level}</p>
@@ -192,15 +277,15 @@ const ProfileModal: React.FC<Props> = ({ user, onClose, onOpenAdmin }) => {
                 {achievements.map((ach, i) => (
                   <div key={i} className={`p-5 rounded-[32px] border transition-all duration-500 ${
                     ach.active 
-                      ? 'bg-slate-900/60 border-slate-700 shadow-xl' 
+                      ? 'bg-slate-900/60 border-slate-700 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(220,38,38,0.15)] hover:border-red-900/50' 
                       : 'bg-slate-950 border-slate-900 opacity-40 grayscale'
                   }`}>
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-4 ${
-                      ach.active ? 'bg-red-600/20 text-red-500' : 'bg-slate-800 text-slate-600'
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-4 transition-all ${
+                      ach.active ? 'bg-red-600/20 text-red-500 shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-[pulse_2s_ease-in-out_infinite]' : 'bg-slate-800 text-slate-600'
                     }`}>
                       {ach.icon}
                     </div>
-                    <p className="text-xs font-black text-white mb-1 uppercase tracking-tighter">{ach.name}</p>
+                    <p className="text-[11px] font-black text-white mb-1 uppercase tracking-tighter leading-tight">{ach.name}</p>
                     <p className="text-[9px] font-bold text-slate-500 leading-tight">{ach.desc}</p>
                   </div>
                 ))}
