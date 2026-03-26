@@ -99,7 +99,7 @@ const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) 
     const listMatch = url.match(/[?&]list=([^&]+)/);
     if (listMatch) {
       const listId = listMatch[1];
-      const explicitVideo = videoId ? `/${videoId}` : ''; // Pode não ter videoId caso URL seja só com ?list=
+      const explicitVideo = videoId ? `/${videoId}` : '/videoseries'; // Correção: Playlists sem vídeo inicial precisam de /videoseries
       return `https://www.youtube.com/embed${explicitVideo}?list=${listId}&autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&modestbranding=1`;
     }
 
