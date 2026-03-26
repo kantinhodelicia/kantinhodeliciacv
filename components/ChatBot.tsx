@@ -8,7 +8,7 @@ interface Message {
   content: string;
 }
 
-const OPENROUTER_API_KEY = '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';
+const OPENROUTER_API_KEY = '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';
 
 const SYSTEM_PROMPT = `Você é o "Pizza Bot", o assistente virtual do Kantinho Delícia Premium, a melhor pizzaria artesanal de Praia, Cabo Verde. Responda SEMPRE em Português de Cabo Verde (simples, amigável e com calor humano).
 
