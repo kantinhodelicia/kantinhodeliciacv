@@ -41,7 +41,7 @@ const Header: React.FC<Props> = ({ user, cartCount, onLogout, onOpenProfile, onO
         {hasLive && (
           <button 
             onClick={onOpenLive}
-            className="mb-8 flex items-center gap-3 bg-red-600/20 backdrop-blur-md border border-red-500/30 px-5 py-2.5 rounded-2xl animate-bounce hover:scale-105 transition-all"
+            className="mb-8 flex items-center gap-3 bg-red-600/20 border border-red-500/30 px-5 py-2.5 rounded-2xl shadow-[0_0_15px_rgba(220,38,38,0.2)] hover:scale-105 transition-all"
           >
             <div className="relative">
               <Tv className="w-5 h-5 text-red-500" />
