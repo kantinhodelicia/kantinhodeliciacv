@@ -315,8 +315,15 @@ const AdminPanel: React.FC<Props> = ({
                                       
                                       if (channels.length > 0) {
                                          setIptvChannels(channels);
-                                         setTempStreamUrl(channels[0].url);
-                                         showAdminToast(`${channels.length} canais carregados da lista!`, "success");
+                                         
+                                         if (channels.length <= 100 && window.confirm("Deseja transmitir todos estes vídeos em sequência como uma Maratona (Auto-Avançar)?\n\nOK = Maratona Sequencial (Ex: Episódio 1 ao último)\nCancelar = Substituir apenas a grelha de canais abaixo")) {
+                                            const urls = channels.map(c => c.url).reverse(); // M3U geralmente põe os EPS mais novos no topo
+                                            setTempStreamUrl(JSON.stringify(urls));
+                                            showAdminToast(`${channels.length} episódios configurados para Maratona Seqüencial!`, "success");
+                                         } else {
+                                            setTempStreamUrl(channels[0].url);
+                                            showAdminToast(`${channels.length} canais carregados da lista!`, "success");
+                                         }
                                       } else {
                                          setTempStreamUrl(pastedText);
                                          showAdminToast("Nenhum link encontrado na lista.", "error");

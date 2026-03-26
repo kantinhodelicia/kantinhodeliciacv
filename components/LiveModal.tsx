@@ -23,7 +23,24 @@ interface FloatingReaction {
 }
 
 const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) => {
-  const [loadError, setLoadError] = useState(!streamUrl);
+  const playlistUrls = React.useMemo(() => {
+    try {
+      if (streamUrl.trim().startsWith('[')) {
+        return JSON.parse(streamUrl) as string[];
+      }
+    } catch {}
+    return [streamUrl];
+  }, [streamUrl]);
+
+  const [playlistIndex, setPlaylistIndex] = useState(0);
+
+  useEffect(() => {
+    setPlaylistIndex(0);
+  }, [streamUrl]);
+
+  const currentActiveUrl = playlistUrls[playlistIndex] || '';
+
+  const [loadError, setLoadError] = useState(!currentActiveUrl);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -43,20 +60,20 @@ const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const isYouTube = React.useMemo(() => {
-    return streamUrl.includes('youtube.com') || streamUrl.includes('youtu.be');
-  }, [streamUrl]);
+    return currentActiveUrl.includes('youtube.com') || currentActiveUrl.includes('youtu.be');
+  }, [currentActiveUrl]);
 
   useEffect(() => {
     let hls: Hls | null = null;
     const video = videoRef.current;
 
-    if (!isYouTube && video && streamUrl) {
+    if (!isYouTube && video && currentActiveUrl) {
       setLoadError(false);
-      const isHlsUrl = streamUrl.toLowerCase().includes('.m3u8') || streamUrl.toLowerCase().includes('.m3u');
+      const isHlsUrl = currentActiveUrl.toLowerCase().includes('.m3u8') || currentActiveUrl.toLowerCase().includes('.m3u');
 
       if (Hls.isSupported() && isHlsUrl) {
         hls = new Hls({ startLevel: -1 });
-        hls.loadSource(streamUrl);
+        hls.loadSource(currentActiveUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setIsVideoReady(true);
@@ -70,7 +87,7 @@ const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) 
           }
         });
       } else {
-        video.src = streamUrl;
+        video.src = currentActiveUrl;
         video.load();
         video.onloadeddata = () => setIsVideoReady(true);
       }
@@ -81,7 +98,7 @@ const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) 
         hls.destroy();
       }
     };
-  }, [streamUrl, isYouTube]);
+  }, [currentActiveUrl, isYouTube]);
 
   const getYouTubeEmbedUrl = (url: string) => {
     let videoId = '';
@@ -292,15 +309,22 @@ const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) 
                 ref={videoRef}
                 autoPlay 
                 muted={isMuted}
-                loop
+                loop={playlistUrls.length === 1}
                 playsInline
                 preload="auto"
                 className="w-full h-full object-cover"
                 onCanPlay={handleCanPlay}
                 onWaiting={() => setIsBuffering(true)}
                 onPlaying={() => setIsBuffering(false)}
+                onEnded={() => {
+                   if (playlistUrls.length > 1) {
+                      setPlaylistIndex(prev => (prev + 1) % playlistUrls.length);
+                      setIsVideoReady(false);
+                      setLoadError(false);
+                   }
+                }}
                 onError={() => {
-                   if (!streamUrl.toLowerCase().includes('.m3u8') && !streamUrl.toLowerCase().includes('.m3u')) {
+                   if (!currentActiveUrl.toLowerCase().includes('.m3u8') && !currentActiveUrl.toLowerCase().includes('.m3u')) {
                        setLoadError(true);
                    }
                 }}
