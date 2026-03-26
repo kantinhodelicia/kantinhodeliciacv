@@ -70,3 +70,15 @@ export interface AppSettings {
   deliveryZones: DeliveryZone[];
   streamUrl?: string;
 }
+
+export interface StoreSettings {
+  id?: number;
+  header_bg?: string;
+  stream_url?: string;
+  scheduled_start?: string;
+  box_price: number;
+  min_order: number;
+  iptv_playlist?: any[];
+  categories?: string[];
+  zones?: any[];
+}
