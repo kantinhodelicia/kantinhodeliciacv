@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    signIn: (name: string, phone: string) => Promise<{ error: any }>;
+    requestOtp: (phone: string) => Promise<{ error: any }>;
+    verifyOtp: (name: string, phone: string, token: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
 }
 
@@ -23,39 +24,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const savedUser = localStorage.getItem('kd_user');
-        if (savedUser) {
-            try {
-                setUser(JSON.parse(savedUser));
-            } catch (e) {
-                console.error("Failed to parse user", e);
-            }
-        }
-        setLoading(false);
-    }, []);
-
-    const signIn = async (name: string, phone: string) => {
+    const loadProfile = async (userId: string) => {
         try {
-            if (!name || !phone) throw new Error('Nome e telefone são obrigatórios');
-            setLoading(true);
-            
-            // Consultar se o telefone já existe
-            let { data: profile, error } = await supabase
+            const { data: profile, error } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('phone', phone)
+                .eq('user_id', userId)
                 .single();
-
-            if (error && error.code !== 'PGRST116') {
-                throw error;
+            
+            if (profile) {
+                setUser({
+                    name: profile.name,
+                    phone: profile.phone,
+                    level: profile.level as any,
+                    points: profile.points,
+                    ordersCount: profile.orders_count,
+                    isAdmin: profile.is_admin
+                });
             }
+        } catch (e) {
+            console.error("Failed to load profile", e);
+        }
+    };
+
+    useEffect(() => {
+        // Fetch current session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                loadProfile(session.user.id);
+            } else {
+                setLoading(false);
+            }
+        });
+
+        // Listen for realtime auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                loadProfile(session.user.id);
+            } else {
+                setUser(null);
+            }
+            setLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const requestOtp = async (phone: string) => {
+        try {
+            if (!phone) throw new Error('Telefone é obrigatório');
+            setLoading(true);
+            const { error } = await supabase.auth.signInWithOtp({ phone });
+            if (error) throw error;
+            return { error: null };
+        } catch (error) {
+            console.error("Erro request OTP:", error);
+            return { error };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const verifyOtp = async (name: string, phone: string, token: string) => {
+        try {
+            setLoading(true);
+            const { data: { session }, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+            if (error) throw error;
+            if (!session) throw new Error("Sessão não foi iniciada.");
+
+            // Ensure profile exists for this secure auth.uid()
+            let { data: profile } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).single();
 
             if (!profile) {
-                // Cadastrar novo perfil
                 const { data: newProfile, error: insertError } = await supabase
                     .from('profiles')
-                    .insert([{ name, phone, level: 'BRONZE', points: 0, orders_count: 0 }])
+                    .insert([{ name, phone, user_id: session.user.id, level: 'BRONZE' }])
                     .select()
                     .single();
                 
@@ -63,20 +106,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 profile = newProfile;
             }
 
-            const activeUser: User = {
-                name: profile.name,
-                phone: profile.phone,
-                level: profile.level as any,
-                points: profile.points,
-                ordersCount: profile.orders_count,
-                isAdmin: profile.is_admin
-            };
-
-            setUser(activeUser);
-            localStorage.setItem('kd_user', JSON.stringify(activeUser));
             return { error: null };
         } catch (error) {
-            console.error("Erro no signIn Supabase:", error);
+            console.error("Erro verify OTP:", error);
             return { error };
         } finally {
             setLoading(false);
@@ -84,16 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
+        await supabase.auth.signOut();
         setUser(null);
-        localStorage.removeItem('kd_user');
     };
 
-    const value = {
-        user,
-        loading,
-        signIn,
-        signOut,
-    };
-
+    const value = { user, loading, requestOtp, verifyOtp, signOut };
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
