@@ -5,8 +5,7 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    requestOtp: (phone: string) => Promise<{ error: any }>;
-    verifyOtp: (name: string, phone: string, token: string) => Promise<{ error: any }>;
+    signIn: (name: string, phone: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
 }
 
@@ -14,11 +13,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
+    if (!context) throw new Error('useAuth must be used within an AuthProvider');
     return context;
 };
+
+// Segredo interno da app para login automático (Free Auth Mapping)
+const DEFAULT_PASSWORD = 'KantinhoSecure2026!';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
-        // Fetch current session
+        // Fetch current session silenciosa
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
                 loadProfile(session.user.id);
@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
 
-        // Listen for realtime auth changes
+        // Ouvir realtime auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
                 loadProfile(session.user.id);
@@ -70,45 +70,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => subscription.unsubscribe();
     }, []);
 
-    const requestOtp = async (phone: string) => {
+    const signIn = async (name: string, phone: string) => {
         try {
-            if (!phone) throw new Error('Telefone é obrigatório');
+            if (!name || !phone) throw new Error('Nome e telefone obrigatórios');
             setLoading(true);
-            const { error } = await supabase.auth.signInWithOtp({ phone });
-            if (error) throw error;
-            return { error: null };
-        } catch (error) {
-            console.error("Erro request OTP:", error);
-            return { error };
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    const verifyOtp = async (name: string, phone: string, token: string) => {
-        try {
-            setLoading(true);
-            const { data: { session }, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
-            if (error) throw error;
-            if (!session) throw new Error("Sessão não foi iniciada.");
+            // Mapeamento Oculto para Supabase Auth Native (sem custos SMS)
+            const fakeEmail = `${phone.replace(/\D/g, '')}@kantinhodelicia.cv`;
 
-            // Ensure profile exists for this secure auth.uid()
-            let { data: profile } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).single();
+            // 1. Tentar fazer Login
+            let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: fakeEmail,
+                password: DEFAULT_PASSWORD,
+            });
+
+            // 2. Se a conta não existir (Invalid credentials), cria e loga o utilizador
+            if (authError && (authError.message.includes('Invalid') || authError.status === 400 || authError.name === 'AuthApiError')) {
+                const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                    email: fakeEmail,
+                    password: DEFAULT_PASSWORD,
+                });
+                
+                if (signUpError) throw signUpError;
+                authData = signUpData;
+            } else if (authError) {
+                throw authError; // Outros erros sérios
+            }
+
+            if (!authData.session) throw new Error("Por favor, desative o 'Confirm Email' no Painel Supabase nas opções Autenticação -> Providers -> Email.");
+
+            const userId = authData.session.user.id;
+
+            // 3. Garantir Perfil na tabela de negócio (agora com permissões graças ao RLS auth.uid())
+            let { data: profile } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
 
             if (!profile) {
                 const { data: newProfile, error: insertError } = await supabase
                     .from('profiles')
-                    .insert([{ name, phone, user_id: session.user.id, level: 'BRONZE' }])
+                    .insert([{ name, phone, user_id: userId, level: 'BRONZE' }])
                     .select()
                     .single();
                 
                 if (insertError) throw insertError;
                 profile = newProfile;
+            } else if (profile.name !== name) {
+                // Atualizar o nome se o cliente mudou
+                await supabase.from('profiles').update({ name }).eq('user_id', userId);
             }
 
+            // O onAuthStateChange preenche o Context
             return { error: null };
         } catch (error) {
-            console.error("Erro verify OTP:", error);
+            console.error("Erro no Free Auth signIn:", error);
             return { error };
         } finally {
             setLoading(false);
@@ -120,6 +133,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
     };
 
-    const value = { user, loading, requestOtp, verifyOtp, signOut };
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return <AuthContext.Provider value={{ user, loading, signIn, signOut }}>{children}</AuthContext.Provider>;
 };
