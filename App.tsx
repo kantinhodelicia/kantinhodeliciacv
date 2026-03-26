@@ -13,6 +13,7 @@ import ProfileModal from './components/ProfileModal';
 import AdminPanel from './components/AdminPanel';
 import LiveModal from './components/LiveModal';
 import AuthWrapper from './components/Auth/AuthWrapper';
+import OrderSuccessModal from './components/OrderSuccessModal';
 import { ShoppingBag, Gamepad2, Sparkles, Award, Lock, ShieldAlert, X, Tv, MapPin, Pizza, Coffee } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -107,6 +108,7 @@ const App: React.FC = () => {
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [successOrder, setSuccessOrder] = useState<{ earnedPoints: number, totalPoints: number, newLevel: string, isLevelUp: boolean } | null>(null);
 
   useEffect(() => {
     async function fetchSupabaseData() {
@@ -333,6 +335,14 @@ const App: React.FC = () => {
       }).eq('phone', user.phone);
 
       setUser(prev => prev ? { ...prev, points: newPoints, ordersCount: newCount, level: newLevel } : null);
+      
+      const isLevelUp = newLevel !== user.level;
+      setSuccessOrder({
+        earnedPoints: 25,
+        totalPoints: newPoints,
+        newLevel: newLevel,
+        isLevelUp: isLevelUp
+      });
     } catch (e) {
       console.error("Erro ao salvar pedido no Supabase", e);
     }
@@ -341,9 +351,7 @@ const App: React.FC = () => {
     setOrderNotes('');
     localStorage.removeItem('kd_notes');
     setIsCartOpen(false);
-
-    showToast('Pedido registrado com sucesso!', 'success');
-  }, [user, showToast, cart, selectedZone, orderNotes]);
+  }, [user, cart, selectedZone, orderNotes]);
 
   const halfPrice = useMemo(() => {
     const priceLeft = halfSelection.left?.prices[selectedSize] || 0;
@@ -569,6 +577,16 @@ const App: React.FC = () => {
           onOrderComplete={finalizeOrder}
           boxPrice={boxPrice}
           minOrder={minOrder}
+        />
+      )}
+
+      {successOrder && (
+        <OrderSuccessModal
+          earnedPoints={successOrder.earnedPoints}
+          totalPoints={successOrder.totalPoints}
+          newLevel={successOrder.newLevel}
+          isLevelUp={successOrder.isLevelUp}
+          onClose={() => setSuccessOrder(null)}
         />
       )}
 
