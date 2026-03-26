@@ -14,6 +14,7 @@ import AdminPanel from './components/AdminPanel';
 import LiveModal from './components/LiveModal';
 import AuthWrapper from './components/Auth/AuthWrapper';
 import OrderSuccessModal from './components/OrderSuccessModal';
+import ChatBot from './components/ChatBot';
 import { ShoppingBag, Gamepad2, Sparkles, Award, Lock, ShieldAlert, X, Tv, MapPin, Pizza, Coffee } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -623,6 +624,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+      <ChatBot />
     </div>
   );
 };
