@@ -34,14 +34,24 @@ const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) 
 
   const [playlistIndex, setPlaylistIndex] = useState(0);
 
-  useEffect(() => {
-    setPlaylistIndex(0);
-  }, [streamUrl]);
-
+  // Derive the active URL reliably
   const currentActiveUrl = playlistUrls[playlistIndex] || '';
 
   const [loadError, setLoadError] = useState(!currentActiveUrl);
   const [isVideoReady, setIsVideoReady] = useState(false);
+
+  useEffect(() => {
+    setPlaylistIndex(0);
+    setLoadError(!playlistUrls[0]);
+    setIsVideoReady(false);
+  }, [streamUrl]);
+
+  useEffect(() => {
+     // Quando muda ativamente de episódio, força o reset do erro
+     if (currentActiveUrl) {
+         setLoadError(false);
+     }
+  }, [currentActiveUrl]);
   const [isBuffering, setIsBuffering] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'chef', text: 'Bem-vindo ao Kantinho Live! O que vamos preparar hoje?', timestamp: 'Agora' }
