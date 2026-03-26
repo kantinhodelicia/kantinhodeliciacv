@@ -120,7 +120,22 @@ const AdminPanel: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-[500] flex flex-col md:flex-row bg-gray-950 text-white overflow-hidden font-sans">
-      <aside className="w-full md:w-72 bg-gray-900 border-r border-gray-800 flex flex-col">
+      
+      {/* Mobile Top Header */}
+      <div className="md:hidden w-full bg-gray-900 border-b border-gray-800 flex items-center justify-between p-5 z-20">
+         <div className="flex items-center gap-3">
+           <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-950/50">
+             <ShieldAlert className="w-4 h-4 text-white" />
+           </div>
+           <h2 className="text-sm font-black italic tracking-tighter">KANTINHO <span className="text-red-600 text-[9px] not-italic font-bold">PRO</span></h2>
+         </div>
+         <button onClick={onClose} className="p-2.5 bg-slate-800 hover:bg-red-600 rounded-xl transition-all">
+           <LogOut className="w-4 h-4 text-slate-300" />
+         </button>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-72 bg-gray-900 border-r border-gray-800 md:flex flex-col z-20">
         <div className="p-10 border-b border-gray-800 flex items-center gap-4">
           <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-950/50">
             <ShieldAlert className="w-6 h-6 text-white" />
@@ -156,27 +171,49 @@ const AdminPanel: React.FC<Props> = ({
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-gray-950 p-12 scrollbar-hide">
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-800 flex items-center justify-around py-4 px-2 z-[600] pb-safe">
+        {[
+          { id: 'DASHBOARD', icon: <TrendingUp className="w-6 h-6" /> },
+          { id: 'PEDIDOS', icon: <Receipt className="w-6 h-6" />, badge: stats.pending },
+          { id: 'CARDÁPIO', icon: <Pizza className="w-6 h-6" /> },
+          { id: 'STUDIO', icon: <Video className="w-6 h-6" /> },
+          { id: 'OPERACOES', icon: <Settings2 className="w-6 h-6" /> },
+        ].map(item => (
+          <button 
+            key={item.id} 
+            onClick={() => setActiveView(item.id as AdminView)}
+            className={`relative p-3 rounded-2xl transition-all ${
+              activeView === item.id ? 'bg-red-600 text-white shadow-lg shadow-red-900/50 -translate-y-2' : 'text-slate-500'
+            }`}
+          >
+            {item.icon}
+            {item.badge ? <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-gray-900 flex items-center justify-center text-[8px] font-black text-white">{item.badge}</span> : null}
+          </button>
+        ))}
+      </nav>
+
+      <main className="flex-1 overflow-y-auto bg-gray-950 p-6 pb-32 md:p-12 scrollbar-hide">
         
         {/* VIEW: STUDIO (FOCADA EM LIVE E BRANDING) */}
         {activeView === 'STUDIO' && (
-          <div className="space-y-12 animate-in fade-in duration-700">
-            <div className="flex justify-between items-end">
+          <div className="space-y-8 md:space-y-12 animate-in fade-in duration-700">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
               <div>
-                <h2 className="text-5xl font-black uppercase tracking-tighter italic">Film <span className="text-red-600">Studio</span></h2>
-                <p className="text-slate-500 text-sm mt-2 font-medium">Controle de cena e transmissão ao vivo para os clientes.</p>
+                <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter italic">Film <span className="text-red-600">Studio</span></h2>
+                <p className="text-slate-500 text-xs md:text-sm mt-2 font-medium">Controle de cena e transmissão ao vivo para os clientes.</p>
               </div>
               <button 
                 onClick={handleSaveStudio}
-                className="bg-red-600 hover:bg-red-500 text-white px-10 py-5 rounded-[24px] font-black text-[11px] uppercase tracking-widest flex items-center gap-3 shadow-2xl transition-all"
+                className="w-full md:w-auto bg-red-600 hover:bg-red-500 text-white px-8 md:px-10 py-4 md:py-5 rounded-[20px] md:rounded-[24px] font-black text-[11px] uppercase tracking-widest flex justify-center items-center gap-3 shadow-2xl transition-all"
               >
                 <MonitorPlay className="w-4 h-4" /> Atualizar Live
               </button>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-10">
                {/* Scene Branding */}
-               <div className="xl:col-span-2 bg-slate-900/40 border border-slate-800 rounded-[48px] p-10 space-y-8">
+               <div className="xl:col-span-2 bg-slate-900/40 border border-slate-800 rounded-[32px] md:rounded-[48px] p-6 md:p-10 space-y-8">
                   <div className="flex items-center gap-4 mb-2">
                     <Palette className="w-6 h-6 text-red-500" />
                     <h3 className="text-2xl font-black uppercase tracking-tight text-white italic">Cenário <span className="text-red-600">Site</span></h3>
@@ -200,13 +237,13 @@ const AdminPanel: React.FC<Props> = ({
                               type="text" 
                               value={tempHeaderBg}
                               onChange={(e) => setTempHeaderBg(e.target.value)}
-                              className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs text-slate-400 outline-none focus:border-red-600"
+                              className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 md:p-5 text-xs text-slate-400 outline-none focus:border-red-600"
                               placeholder="URL da imagem principal..."
                            />
                         </div>
                      </div>
 
-                     <div className="grid grid-cols-4 gap-4">
+                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                         {[
                           { n: 'Tradicional', u: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=1200' },
                           { n: 'Ingredientes', u: 'https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?auto=format&fit=crop&q=80&w=1200' },
@@ -226,7 +263,7 @@ const AdminPanel: React.FC<Props> = ({
                </div>
 
                {/* Live Broadcast Monitor */}
-               <div className="bg-slate-900/40 border border-slate-800 rounded-[48px] p-10 space-y-8 flex flex-col">
+               <div className="bg-slate-900/40 border border-slate-800 rounded-[32px] md:rounded-[48px] p-6 md:p-10 space-y-6 md:space-y-8 flex flex-col">
                   <div className="flex items-center gap-4 mb-2">
                     <Radio className="w-6 h-6 text-red-500" />
                     <h3 className="text-2xl font-black uppercase tracking-tight text-white italic">Live <span className="text-red-600">Direct</span></h3>
@@ -359,29 +396,29 @@ const AdminPanel: React.FC<Props> = ({
 
         {/* VIEW: OPERAÇÕES (VENDA E SISTEMA) */}
         {activeView === 'OPERACOES' && (
-          <div className="space-y-12 animate-in fade-in duration-700">
-             <div className="flex justify-between items-end">
+          <div className="space-y-8 md:space-y-12 animate-in fade-in duration-700">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
-                  <h2 className="text-5xl font-black uppercase tracking-tighter italic">Definições <span className="text-red-600">Sistema</span></h2>
-                  <p className="text-slate-500 text-sm mt-2 font-medium">Controle de taxas, pagamentos e parâmetros operacionais.</p>
+                  <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter italic">Definições <span className="text-red-600">Sistema</span></h2>
+                  <p className="text-slate-500 text-xs md:text-sm mt-2 font-medium">Controle de taxas, pagamentos e parâmetros operacionais.</p>
                 </div>
                 <button 
                   onClick={handleSaveOperations}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-5 rounded-[24px] font-black text-[11px] uppercase tracking-widest flex items-center gap-3 shadow-2xl transition-all"
+                  className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 md:px-10 py-4 md:py-5 rounded-[20px] md:rounded-[24px] font-black text-[11px] uppercase tracking-widest flex justify-center items-center gap-3 shadow-2xl transition-all"
                 >
                   <Save className="w-4 h-4" /> Salvar Operações
                 </button>
              </div>
 
-             <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-10">
                 {/* Venda e Taxas */}
-                <div className="bg-slate-900/40 border border-slate-800 rounded-[48px] p-10 space-y-10">
+                <div className="bg-slate-900/40 border border-slate-800 rounded-[32px] md:rounded-[48px] p-6 md:p-10 space-y-6 md:space-y-10">
                    <div className="flex items-center gap-4">
                       <DollarSign className="w-6 h-6 text-emerald-500" />
                       <h3 className="text-2xl font-black uppercase tracking-tight text-white italic">Parâmetros <span className="text-emerald-500">Financeiros</span></h3>
                    </div>
 
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                       <div className="bg-slate-950 border border-slate-800 rounded-[32px] p-8 space-y-4">
                          <div className="flex items-center justify-between">
                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Preço Caixa</label>
@@ -417,9 +454,9 @@ const AdminPanel: React.FC<Props> = ({
                       </div>
                    </div>
 
-                   <div className="bg-slate-950/50 border border-slate-800 rounded-[32px] p-8 flex items-center justify-between">
-                      <div className="flex items-center gap-5">
-                         <CreditCard className="w-8 h-8 text-blue-500" />
+                   <div className="bg-slate-950/50 border border-slate-800 rounded-[32px] p-6 md:p-8 flex items-center justify-between">
+                      <div className="flex items-center gap-4 md:gap-5">
+                         <CreditCard className="w-6 h-6 md:w-8 md:h-8 text-blue-500 flex-shrink-0" />
                          <div>
                             <p className="text-xs font-black text-white uppercase tracking-widest">Pagamentos USDT (Crypto)</p>
                             <p className="text-[9px] font-bold text-slate-600">Aceitar stablecoins no checkout digital</p>
@@ -432,7 +469,7 @@ const AdminPanel: React.FC<Props> = ({
                 </div>
 
                 {/* Sistema e Status */}
-                <div className="bg-slate-900/40 border border-slate-800 rounded-[48px] p-10 space-y-10">
+                <div className="bg-slate-900/40 border border-slate-800 rounded-[32px] md:rounded-[48px] p-6 md:p-10 space-y-6 md:space-y-10">
                    <div className="flex items-center gap-4">
                       <Wrench className="w-6 h-6 text-red-500" />
                       <h3 className="text-2xl font-black uppercase tracking-tight text-white italic">Config <span className="text-red-600">Global</span></h3>
@@ -479,13 +516,12 @@ const AdminPanel: React.FC<Props> = ({
           </div>
         )}
 
-        {/* VIEW: CARDÁPIO (GERENCIADOR DE PRODUTOS) */}
         {activeView === 'CARDÁPIO' && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex justify-between items-end">
-              <div>
-                <h2 className="text-5xl font-black uppercase tracking-tighter italic">Cardápio <span className="text-red-600">Digital</span></h2>
-                <p className="text-slate-500 text-sm mt-2 font-medium">Gerencie pizzas, bebidas e disponibilidade em tempo real.</p>
+          <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 w-full overflow-hidden">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+              <div className="w-full">
+                <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter italic whitespace-normal">Cardápio <span className="text-red-600">Digital</span></h2>
+                <p className="text-slate-500 text-xs md:text-sm mt-2 font-medium break-words">Gerencie pizzas, bebidas e disponibilidade em tempo real.</p>
               </div>
               <button 
                 onClick={() => {
@@ -493,14 +529,14 @@ const AdminPanel: React.FC<Props> = ({
                   setFormCategory(categories[0] || 'PIZZAS');
                   setIsAddingProduct(true);
                 }}
-                className="bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded-[24px] font-black text-[11px] uppercase tracking-widest flex items-center gap-3 shadow-2xl transition-all"
+                className="w-full md:w-auto bg-red-600 hover:bg-red-500 text-white px-8 py-4 md:py-5 rounded-[20px] md:rounded-[24px] font-black text-[11px] uppercase tracking-widest flex justify-center items-center gap-3 shadow-2xl transition-all"
               >
                 <Plus className="w-4 h-4" /> Novo Produto
               </button>
             </div>
 
             {/* Abas de Categorias */}
-            <div className="flex gap-4">
+            <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide flex-nowrap -mx-6 px-6 md:mx-0 md:px-0">
                {categories.map(cat => (
                  <button 
                    key={cat}
@@ -586,22 +622,22 @@ const AdminPanel: React.FC<Props> = ({
 
         {/* VIEW: PEDIDOS (GESTÃO DE VENDAS) */}
         {activeView === 'PEDIDOS' && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-             <div className="flex justify-between items-end">
-                <div>
-                   <h2 className="text-5xl font-black uppercase tracking-tighter italic">Gestão de <span className="text-red-600">Pedidos</span></h2>
-                   <p className="text-slate-500 text-sm mt-2 font-medium">Controle o andamento e status de cada venda em tempo real.</p>
+          <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 w-full overflow-hidden">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                <div className="w-full">
+                   <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter italic whitespace-normal">Gestão de <span className="text-red-600">Pedidos</span></h2>
+                   <p className="text-slate-500 text-xs md:text-sm mt-2 font-medium break-words">Controle o andamento e status de cada venda em tempo real.</p>
                 </div>
-                <div className="flex bg-slate-900 border border-slate-800 rounded-full p-1">
+                <div className="flex bg-slate-900 border border-slate-800 rounded-[20px] md:rounded-full p-1 w-full md:w-auto overflow-x-auto scrollbar-hide">
                    <button 
                      onClick={() => setOrderFilter('ATIVOS')}
-                     className={`px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${orderFilter === 'ATIVOS' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                     className={`flex-1 md:flex-none whitespace-nowrap px-6 md:px-8 py-3 rounded-[16px] md:rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${orderFilter === 'ATIVOS' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
                    >
                      Em Andamento
                    </button>
                    <button 
                      onClick={() => setOrderFilter('HISTORICO')}
-                     className={`px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${orderFilter === 'HISTORICO' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                     className={`flex-1 md:flex-none whitespace-nowrap px-6 md:px-8 py-3 rounded-[16px] md:rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${orderFilter === 'HISTORICO' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
                    >
                      Finalizados
                    </button>
@@ -645,7 +681,7 @@ const AdminPanel: React.FC<Props> = ({
 
                      <div className="space-y-3">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-2">Alterar Status</p>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-2 gap-2">
                            {['RECEBIDO', 'PREPARO', 'PRONTO', 'ENTREGUE', 'CONCLUIDO'].map((status) => {
                               const isCurrent = sale.status === status;
                               const colors: Record<string, string> = {
@@ -704,16 +740,16 @@ const AdminPanel: React.FC<Props> = ({
 
         {/* Dashboards e Pedidos Omitidos mas funcionais ... */}
         {activeView === 'DASHBOARD' && (
-           <div className="space-y-12 animate-in fade-in">
-              <h2 className="text-5xl font-black uppercase tracking-tighter italic">Visão <span className="text-red-600">Geral</span></h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <div className="bg-gray-900 border border-gray-800 p-10 rounded-[40px]">
+           <div className="space-y-8 md:space-y-12 animate-in fade-in">
+              <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter italic w-full">Visão <span className="text-red-600">Geral</span></h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                 <div className="bg-gray-900 border border-gray-800 p-8 md:p-10 rounded-[32px] md:rounded-[40px]">
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Faturamento 30d</p>
-                    <h3 className="text-5xl font-black text-white">{stats.total}$</h3>
+                    <h3 className="text-4xl md:text-5xl font-black text-white">{stats.total}$</h3>
                  </div>
-                 <div className="bg-gray-900 border border-gray-800 p-10 rounded-[40px]">
+                 <div className="bg-gray-900 border border-gray-800 p-8 md:p-10 rounded-[32px] md:rounded-[40px]">
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Pedidos na Fila</p>
-                    <h3 className="text-5xl font-black text-white">{stats.pending}</h3>
+                    <h3 className="text-4xl md:text-5xl font-black text-white">{stats.pending}</h3>
                  </div>
               </div>
            </div>
