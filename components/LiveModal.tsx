@@ -85,13 +85,25 @@ const LiveModal: React.FC<Props> = ({ streamUrl, scheduledStartTime, onClose }) 
 
   const getYouTubeEmbedUrl = (url: string) => {
     let videoId = '';
+    
     if (url.includes('youtu.be/')) {
       videoId = url.split('youtu.be/')[1].split('?')[0];
-    } else if (url.includes('youtube.com/watch?v=')) {
-      videoId = url.split('v=')[1].split('&')[0];
+    } else if (url.includes('youtube.com/watch')) {
+      const match = url.match(/[?&]v=([^&]+)/);
+      if (match) videoId = match[1];
     } else if (url.includes('youtube.com/embed/')) {
       videoId = url.split('embed/')[1].split('?')[0];
     }
+
+    // Se for uma lista de reprodução, deve avançar pelos capítulos em vez de repetir o 1º
+    const listMatch = url.match(/[?&]list=([^&]+)/);
+    if (listMatch) {
+      const listId = listMatch[1];
+      const explicitVideo = videoId ? `/${videoId}` : ''; // Pode não ter videoId caso URL seja só com ?list=
+      return `https://www.youtube.com/embed${explicitVideo}?list=${listId}&autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&modestbranding=1`;
+    }
+
+    // Apenas 1 vídeo, então faz loop infinito para a Live nunca cair
     return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&modestbranding=1&loop=1&playlist=${videoId}`;
   };
 
