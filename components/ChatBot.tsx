@@ -121,7 +121,7 @@ const ChatBot: React.FC = () => {
           'X-Title': 'Kantinho Delícia Premium'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-lite-preview-02-05:free',
+          model: 'google/gemma-2-9b-it:free',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             ...messages.map(m => ({ role: m.role, content: m.content })),
