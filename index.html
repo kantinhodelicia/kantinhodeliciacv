@@ -116,24 +116,6 @@
     <!-- Área de impressão externa ao root para evitar herança de display:none -->
     <div id="print-area" class="print-section"></div>
 
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          try {
-            const swUrl = new URL('sw.js', window.location.href).href;
-            navigator.serviceWorker.register(swUrl)
-              .then(reg => {
-                console.log('Service Worker registrado com sucesso na scope:', reg.scope);
-              })
-              .catch(err => {
-                console.warn('Registro de Service Worker ignorado ou falhou (comum em previews):', err.message);
-              });
-          } catch (e) {
-            console.warn('Erro ao preparar registro do Service Worker:', e);
-          }
-        });
-      }
-    </script>
-<script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>

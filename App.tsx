@@ -105,6 +105,9 @@ const App: React.FC = () => {
   const [halfSelection, setHalfSelection] = useState<{ left?: Product; right?: Product }>({});
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
   useEffect(() => {
     async function fetchSupabaseData() {
       try {
@@ -157,6 +160,26 @@ const App: React.FC = () => {
     }
     fetchSupabaseData();
   }, []);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallPrompt(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallPrompt(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   // Sync Supabase auth user with local state
   useEffect(() => {
@@ -580,6 +603,26 @@ const App: React.FC = () => {
         <div className={`fixed top-12 left-1/2 -translate-x-1/2 px-8 py-4 rounded-full shadow-3xl z-[400] animate-in fade-in slide-in-from-top-12 duration-500 ${toast.type === 'success' ? 'bg-emerald-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-slate-800'
           } text-white font-black text-xs uppercase tracking-widest`}>
           {toast.message}
+        </div>
+      )}
+
+      {showInstallPrompt && (
+        <div className="fixed bottom-[110px] left-4 right-4 md:left-auto md:right-8 md:w-80 bg-slate-900 border border-slate-700/50 p-4 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] z-[45] flex items-center gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500">
+          <div className="bg-red-600/10 p-3 rounded-2xl border border-red-500/20">
+             <span className="text-2xl pt-1 block">🍕</span>
+          </div>
+          <div className="flex-1">
+             <p className="text-xs font-black text-white uppercase tracking-widest leading-tight">Instale nosso App!</p>
+             <p className="text-[10px] text-slate-400 font-medium mt-0.5">Acesso rápido direto na sua tela.</p>
+          </div>
+          <div className="flex flex-col gap-2">
+             <button onClick={handleInstallClick} className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-red-900/30 transition-all active:scale-95">
+               Instalar
+             </button>
+             <button onClick={() => setShowInstallPrompt(false)} className="text-slate-500 hover:text-slate-300 text-[9px] font-bold uppercase tracking-widest text-center transition-colors">
+               Agora não
+             </button>
+          </div>
         </div>
       )}
     </div>
