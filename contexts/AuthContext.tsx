@@ -73,6 +73,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
+        // Timeout de segurança: Se o Supabase não responder em 5 seg, destrancamos a UI
+        const safetyTimeout = setTimeout(() => {
+            console.warn("Auth sync timeout reached. Unlocking UI.");
+            setLoading(false);
+        }, 5000);
+
         // Estado inicial
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
@@ -80,9 +86,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
                 setLoading(false);
             }
+            clearTimeout(safetyTimeout);
+        }).catch(() => {
+            setLoading(false);
+            clearTimeout(safetyTimeout);
         });
 
-        // Listener Global de Auth (Resolve Race Conditions)
+        // Listener Global de Auth
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.user) {
                 await syncProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
@@ -92,7 +102,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(safetyTimeout);
+        };
     }, []);
 
     const signIn = async (name: string, email: string) => {
