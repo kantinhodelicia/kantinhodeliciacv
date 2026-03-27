@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    signIn: (name: string, phone: string) => Promise<{ error: any }>;
+    signIn: (name: string, email: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
 }
 
@@ -70,58 +70,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => subscription.unsubscribe();
     }, []);
 
-    const signIn = async (name: string, phone: string) => {
+    const signIn = async (name: string, email: string) => {
         try {
-            if (!name || !phone) throw new Error('Nome e telefone obrigatórios');
+            if (!name || !email) throw new Error('Nome e email obrigatórios');
             setLoading(true);
 
-            // Mapeamento Oculto para Supabase Auth Native (sem custos SMS)
-            const fakeEmail = `${phone.replace(/\D/g, '')}@kantinhodelicia.cv`;
-
-            // 1. Tentar fazer Login
+            // 1. Tentar Login com email real
             let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email: fakeEmail,
+                email,
                 password: DEFAULT_PASSWORD,
             });
 
-            // 2. Se a conta não existir (Invalid credentials), cria e loga o utilizador
-            if (authError && (authError.message.includes('Invalid') || authError.status === 400 || authError.name === 'AuthApiError')) {
+            // 2. Se a conta não existir, cria e loga o cliente
+            if (authError && (authError.message.includes('Invalid') || authError.status === 400)) {
                 const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-                    email: fakeEmail,
+                    email,
                     password: DEFAULT_PASSWORD,
                 });
-                
                 if (signUpError) throw signUpError;
                 authData = signUpData;
             } else if (authError) {
-                throw authError; // Outros erros sérios
+                throw authError;
             }
 
-            if (!authData.session) throw new Error("Por favor, desative o 'Confirm Email' no Painel Supabase nas opções Autenticação -> Providers -> Email.");
+            if (!authData.session) throw new Error("Desative o 'Confirm Email' no Painel Supabase → Authentication → Providers → Email.");
 
             const userId = authData.session.user.id;
 
-            // 3. Garantir Perfil na tabela de negócio (agora com permissões graças ao RLS auth.uid())
+            // 3. Garantir Perfil na tabela de negócio
             let { data: profile } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
 
             if (!profile) {
                 const { data: newProfile, error: insertError } = await supabase
                     .from('profiles')
-                    .insert([{ name, phone, user_id: userId, level: 'BRONZE' }])
+                    .insert([{ name, email, user_id: userId, level: 'BRONZE' }])
                     .select()
                     .single();
-                
                 if (insertError) throw insertError;
                 profile = newProfile;
             } else if (profile.name !== name) {
-                // Atualizar o nome se o cliente mudou
                 await supabase.from('profiles').update({ name }).eq('user_id', userId);
             }
 
-            // O onAuthStateChange preenche o Context
             return { error: null };
         } catch (error) {
-            console.error("Erro no Free Auth signIn:", error);
+            console.error("Erro no signIn:", error);
             return { error };
         } finally {
             setLoading(false);

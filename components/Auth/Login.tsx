@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { User, Phone, ArrowRight, AlertCircle } from 'lucide-react';
+import { User, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Login: React.FC = () => {
     const { signIn } = useAuth();
     const [name, setName] = useState('');
-    const [phone, setPhone] = useState('');
+    const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -14,7 +14,7 @@ const Login: React.FC = () => {
         setError('');
         setLoading(true);
 
-        const { error: signInError } = await signIn(name, phone);
+        const { error: signInError } = await signIn(name, email);
 
         if (signInError) {
             setError(signInError.message || 'Erro ao entrar. Tente novamente.');
@@ -41,7 +41,7 @@ const Login: React.FC = () => {
                 {/* Login Form */}
                 <form onSubmit={handleSubmit} className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-[40px] p-8 shadow-2xl">
                     <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-8 text-center">
-                        Informar Dados
+                        Entrar na Loja
                     </h2>
 
                     {error && (
@@ -70,21 +70,22 @@ const Login: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Phone Input */}
+                    {/* Email Input */}
                     <div className="mb-8">
                         <label className="block text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
-                            Número de Telemóvel
+                            Email
                         </label>
                         <div className="relative">
-                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                             <input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-white outline-none focus:border-red-600 transition-colors"
-                                placeholder="991234567"
+                                placeholder="joao@exemplo.com"
                                 required
                                 disabled={loading}
+                                autoComplete="email"
                             />
                         </div>
                     </div>
@@ -98,6 +99,10 @@ const Login: React.FC = () => {
                         {loading ? 'A Entrar...' : 'Acessar Loja'}
                         {!loading && <ArrowRight className="w-5 h-5" />}
                     </button>
+
+                    <p className="text-center text-slate-600 text-xs mt-6 font-medium">
+                        Ao entrar, você concorda com os nossos termos de serviço.
+                    </p>
                 </form>
             </div>
         </div>
