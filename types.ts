@@ -81,4 +81,6 @@ export interface StoreSettings {
   iptv_playlist?: any[];
   categories?: string[];
   zones?: any[];
+  created_at?: string;
+  updated_at?: string;
 }

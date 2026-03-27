@@ -97,7 +97,7 @@ const App: React.FC = () => {
   });
 
   const [activeTab, setActiveTab] = useState<string>('PIZZAS');
-  const [selectedSize, setSelectedSize] = useState<PizzaSize>('FAMILIAR');
+  const [selectedSize, setSelectedSize] = useState<PizzaSize>('MEDIO');
   const [selectedZone, setSelectedZone] = useState<DeliveryZone | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isGameOpen, setIsGameOpen] = useState(false);
@@ -114,6 +114,7 @@ const App: React.FC = () => {
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [successOrder, setSuccessOrder] = useState<{ earnedPoints: number, totalPoints: number, newLevel: string, isLevelUp: boolean } | null>(null);
 
   useEffect(() => {
@@ -196,6 +197,14 @@ const App: React.FC = () => {
       localStorage.setItem('kd_user', JSON.stringify(authUser));
     }
   }, [authUser]);
+
+  // Handle unauthorized profile access
+  useEffect(() => {
+    if (isProfileOpen && !user) {
+      setIsProfileOpen(false);
+      setIsAuthModalOpen(true);
+    }
+  }, [isProfileOpen, user]);
 
   useEffect(() => {
     if (user) localStorage.setItem('kd_user', JSON.stringify(user));
@@ -288,8 +297,11 @@ const App: React.FC = () => {
     showToast(`${product.name} no carrinho!`, 'success');
   }, [showToast]);
 
-  const finalizeOrder = useCallback(async (orderTotal: number) => {
-    if (!user) return;
+  const finalizeOrder = useCallback(async (orderTotal: number, paymentMethod: 'DINHEIRO' | 'CARTAO' | 'USDT' = 'DINHEIRO', guestData?: { name: string, phone: string }) => {
+    if (!user && !guestData) return;
+
+    const finalName = user?.name || guestData?.name || 'Cliente';
+    const finalPhone = user?.phone || guestData?.phone || '';
 
     const itemsDetail = cart.map(i => `${i.quantity}x ${i.name}`).join(', ');
     const newId = `sale-${Date.now()}`;
@@ -302,11 +314,11 @@ const App: React.FC = () => {
       itemsCount: cart.length,
       itemsDetail: itemsDetail,
       items: [...cart],
-      customerName: user.name,
-      customerPhone: user.phone,
+      customerName: finalName,
+      customerPhone: finalPhone,
       zoneName: selectedZone?.name || 'Retirada',
       status: 'RECEBIDO',
-      paymentMethod: 'DINHEIRO',
+      paymentMethod: paymentMethod,
       notes: orderNotes
     };
 
@@ -315,14 +327,14 @@ const App: React.FC = () => {
     try {
       await supabase.from('orders').insert([{
          id: newId,
-         customer_name: user.name,
-         customer_phone: user.phone,
+         customer_name: finalName,
+         customer_phone: finalPhone,
          items: cart,
          items_detail: itemsDetail,
          total: orderTotal,
          status: 'RECEBIDO',
          zone_name: selectedZone?.name || 'Retirada',
-         payment_method: 'DINHEIRO',
+         payment_method: paymentMethod,
          notes: orderNotes,
          timestamp
       }]);
@@ -387,6 +399,10 @@ const App: React.FC = () => {
     setSales(updatedSales);
   };
 
+  const currentCategoryProducts = useMemo(() => {
+    return products.filter(p => (activeTab === 'PIZZAS' ? p.category === 'PIZZAS' : p.category === activeTab) && p.isActive);
+  }, [products, activeTab]);
+
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -401,10 +417,8 @@ const App: React.FC = () => {
     );
   }
 
-  // Show auth if no user
-  if (!user) {
-    return <AuthWrapper />;
-  }
+  // User is now optional for the main app
+  // const showAuth = !user && ... (we'll handle it via isAuthModalOpen)
 
   const sizes: PizzaSize[] = ['FAMILIAR', 'MEDIO', 'PEQ'];
 
@@ -413,7 +427,8 @@ const App: React.FC = () => {
       <Header
         user={user}
         cartCount={cart.length}
-        onLogout={() => setUser(null)}
+        onLogin={() => setIsAuthModalOpen(true)}
+        onLogout={() => { setUser(null); signOut(); }}
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenAdmin={handleAdminAccess}
         backgroundUrl={headerBg}
@@ -425,37 +440,72 @@ const App: React.FC = () => {
       <main className="max-w-4xl mx-auto px-4 mt-10">
 
         {/* Navegação de Categorias Premium */}
-        <div className="flex bg-slate-900/60 backdrop-blur-xl p-2 rounded-[32px] border border-slate-800/50 mb-10 overflow-x-auto scrollbar-hide snap-x">
+        <div className="flex bg-slate-900/40 backdrop-blur-2xl p-2 rounded-[32px] border border-white/5 mb-12 overflow-x-auto scrollbar-hide snap-x shadow-2xl">
           {([...categories, 'ZONES']).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 min-w-[140px] snap-center flex items-center justify-center gap-3 py-4 px-6 rounded-[24px] font-black text-[11px] uppercase tracking-[0.2em] transition-all duration-500 ${activeTab === tab ? 'bg-red-600 text-white shadow-2xl shadow-red-900/40 translate-y-[-2px]' : 'text-slate-500 hover:text-slate-200'}`}
+              className={`flex-1 min-w-[150px] snap-center flex items-center justify-center gap-3 py-4.5 px-6 rounded-[26px] font-black text-[10px] uppercase tracking-[0.25em] transition-all duration-700 relative overflow-hidden group ${activeTab === tab ? 'text-white' : 'text-slate-500 hover:text-slate-200'}`}
             >
-              {tab === 'PIZZAS' ? <Pizza className="w-4 h-4" /> : tab === 'BEBIDAS' ? <Coffee className="w-4 h-4" /> : tab === 'ZONES' ? <MapPin className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-              {tab === 'PIZZAS' ? 'Pizzas' : tab === 'BEBIDAS' ? 'Bebidas' : tab === 'ZONES' ? 'Entregas' : tab}
+              {activeTab === tab && (
+                <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-orange-600 animate-in fade-in zoom-in duration-500 shadow-lg shadow-red-900/40" />
+              )}
+              <span className="relative z-10 flex items-center gap-3">
+                {tab === 'PIZZAS' ? <Pizza className="w-4 h-4" /> : tab === 'BEBIDAS' ? <Coffee className="w-4 h-4" /> : tab === 'ZONES' ? <MapPin className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                {tab === 'PIZZAS' ? 'Pizzas' : tab === 'BEBIDAS' ? 'Bebidas' : tab === 'ZONES' ? 'Entregas' : tab}
+              </span>
             </button>
           ))}
         </div>
 
         {activeTab === 'PIZZAS' && !halfMode && (
-          <div className="flex gap-4 mb-10 animate-in slide-in-from-left duration-500">
-            {sizes.map(size => (
-              <button
-                key={size}
-                onClick={() => setSelectedSize(size)}
-                className={`flex-1 py-4 rounded-[24px] border-2 font-black text-xs uppercase tracking-widest transition-all duration-300 ${selectedSize === size ? 'border-red-500 bg-red-500/10 text-red-400 shadow-lg' : 'border-slate-800 text-slate-600 hover:border-slate-700'}`}
-              >
-                {size}
-              </button>
-            ))}
+          <div className="relative bg-slate-900/30 backdrop-blur-xl p-1.5 rounded-[36px] border border-white/5 mb-14 overflow-hidden shadow-xl">
+            {/* Sliding Indicator */}
+            <div 
+              className="absolute top-1.5 bottom-1.5 rounded-[30px] bg-gradient-to-br from-red-600 via-red-500 to-orange-500 shadow-2xl shadow-red-900/50 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+              style={{
+                width: `calc((100% - 12px) / 3)`,
+                left: `calc(6px + ((${sizes.indexOf(selectedSize)}) * (100% - 12px) / 3))`
+              }}
+            />
+            
+            <div className="relative flex">
+              {sizes.map((size) => {
+                const labels: Record<string, { short: string; long: string }> = {
+                  PEQ: { short: 'P', long: 'Pequena' },
+                  MEDIO: { short: 'M', long: 'Média' },
+                  FAMILIAR: { short: 'F', long: 'Familiar' }
+                };
+                const isSelected = selectedSize === size;
+                
+                return (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className="flex-1 py-5 flex flex-col items-center justify-center gap-1 transition-all duration-500 relative z-10 group"
+                  >
+                    <span className={`text-sm font-black transition-all duration-500 ${isSelected ? 'text-white scale-110' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                      {labels[size]?.short || size}
+                    </span>
+                    <span className={`text-[8px] font-black uppercase tracking-[0.3em] transition-all duration-500 ${isSelected ? 'text-white/80' : 'text-slate-600 group-hover:text-slate-400'}`}>
+                      {labels[size]?.long || ''}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
         {activeTab === 'PIZZAS' && (
           <div className="mb-10">
             <button
-              onClick={() => { setHalfMode(!halfMode); setHalfSelection({}); }}
+              onClick={() => { 
+                const newMode = !halfMode;
+                setHalfMode(newMode); 
+                setHalfSelection({}); 
+                if (newMode) setSelectedSize('MEDIO');
+              }}
               className={`w-full py-6 rounded-[32px] border-2 border-dashed font-black uppercase tracking-[0.3em] text-[10px] transition-all ${halfMode ? 'border-red-500/50 text-red-500 bg-red-500/5' : 'border-slate-800 text-slate-500 hover:border-slate-600 hover:bg-slate-900/40'}`}
             >
               {halfMode ? 'Sair da Customização' : 'Criar Pizza Meio a Meio'}
@@ -487,7 +537,7 @@ const App: React.FC = () => {
           <ZonePicker zones={zones} selected={selectedZone} onSelect={setSelectedZone} />
         ) : (
           <MenuList
-            products={products.filter(p => p.category === activeTab)}
+            products={currentCategoryProducts}
             selectedSize={selectedSize}
             halfMode={activeTab === 'PIZZAS' && halfMode}
             halfSelection={halfSelection}
@@ -578,7 +628,21 @@ const App: React.FC = () => {
 
       {isGameOpen && <GameModal onClose={() => setIsGameOpen(false)} />}
       {isLiveOpen && <LiveModal streamUrl={streamUrl} scheduledStartTime={scheduledStartTime} onClose={() => setIsLiveOpen(false)} />}
-      {isProfileOpen && <ProfileModal user={user} onClose={() => setIsProfileOpen(false)} onOpenAdmin={handleAdminAccess} />}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsAuthModalOpen(false)}></div>
+          <div className="relative w-full max-w-md animate-in zoom-in duration-300">
+            <button 
+              onClick={() => setIsAuthModalOpen(false)}
+              className="absolute -top-12 right-0 p-3 text-white/50 hover:text-white transition-colors"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <AuthWrapper />
+          </div>
+        </div>
+      )}
+      {isProfileOpen && user && <ProfileModal user={user} onClose={() => setIsProfileOpen(false)} onOpenAdmin={handleAdminAccess} />}
       {isAdminOpen && (
         <AdminPanel
           products={products}

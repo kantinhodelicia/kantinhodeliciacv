@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+body {
+    font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    background: radial-gradient(circle at top right, #1e293b, #020617);
+    min-height: 100vh;
+}
+
+.font-crimson {
+    font-family: 'Crimson Text', serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #020617;
+}
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #dc2626;
+}
+
+/* Estilos de Impressão */
+@media print {
+    @page { margin: 0; size: auto; }
+    html, body {
+        height: 100%;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+    }
+    #root { display: none !important; }
+    .no-print { display: none !important; }
+    .print-section {
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 80mm !important;
+        padding: 4mm !important;
+        margin: 0 !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        background: white !important;
+    }
+}
+
+.print-section {
+    display: none;
+    visibility: hidden;
+}
+
+/* Fly to cart animation */
+@keyframes flyToCart {
+    0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+    40% { opacity: 0.9; transform: translate(-50%, calc(-50% - 100px)) scale(0.8) rotate(45deg); }
+    100% { transform: translate(calc(100vw - 120px), calc(-100% + 60px)) scale(0.1) rotate(720deg); opacity: 0; }
+}
+
+.animate-fly-to-cart {
+    animation: flyToCart 0.9s cubic-bezier(0.175, 0.885, 0.32, 1) forwards;
+}
+
+/* Base utility for premium glassmorphism */
+.glass {
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}

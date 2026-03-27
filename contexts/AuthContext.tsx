@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    signIn: (name: string, email: string) => Promise<{ error: any }>;
+    signIn: (email: string) => Promise<{ error: any }>;
+    verifyOtp: (email: string, token: string, name?: string) => Promise<{ error: any }>;
     signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
 }
@@ -18,8 +19,6 @@ export const useAuth = () => {
     return context;
 };
 
-// Segredo interno da app para login automático (Free Auth Mapping)
-const DEFAULT_PASSWORD = 'KantinhoSecure2026!';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -36,7 +35,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             // 2. Se não existir, criar (Garante que Google e Email novos funcionem)
             if (!profile || fetchError) {
-                const finalName = name || email?.split('@')[0] || 'Cliente';
+                const pendingName = localStorage.getItem('kd_pending_name');
+                const finalName = name || pendingName || email?.split('@')[0] || 'Cliente';
+                localStorage.removeItem('kd_pending_name');
+                
                 const { data: newProfile, error: insertError } = await supabase
                     .from('profiles')
                     .insert([{ 
@@ -108,34 +110,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    const signIn = async (name: string, email: string) => {
+    const signIn = async (email: string) => {
         try {
-            if (!name || !email) throw new Error('Nome e email obrigatórios');
+            if (!email) throw new Error('Email obrigatório');
             setLoading(true);
 
-            // 1. Tentar Login
-            let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            const { error } = await supabase.auth.signInWithOtp({
                 email,
-                password: DEFAULT_PASSWORD,
+                options: {
+                    emailRedirectTo: window.location.origin,
+                }
             });
 
-            // 2. Se a conta não existir, cria
-            if (authError && (authError.message.includes('Invalid') || authError.status === 400)) {
-                const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-                    email,
-                    password: DEFAULT_PASSWORD,
-                    options: { data: { full_name: name } }
-                });
-                if (signUpError) throw signUpError;
-                authData = signUpData;
-            } else if (authError) {
-                throw authError;
-            }
-
-            // O Listener onAuthStateChange detetará o session e chamará syncProfile automaticamente.
+            if (error) throw error;
             return { error: null };
         } catch (error) {
-            console.error("Erro no signIn:", error);
+            console.error("Erro no signIn OTP:", error);
+            return { error };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const verifyOtp = async (email: string, token: string, name?: string) => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.auth.verifyOtp({
+                email,
+                token,
+                type: 'signup', // Tenta signup primeiro, se falhar tenta magiclink/login
+            });
+
+            let finalError = error;
+            if (error && error.message.includes('Token has expired or is invalid')) {
+                 // Try login type if signup fails
+                 const { data: loginData, error: loginError } = await supabase.auth.verifyOtp({
+                    email,
+                    token,
+                    type: 'magiclink',
+                });
+                finalError = loginError;
+            }
+
+            if (finalError) throw finalError;
+
+            // Se for novo usuário e tivermos o nome, o syncProfile cuidará disso via onAuthStateChange
+            // mas podemos forçar o nome no localStorage para o syncProfile pegar.
+            if (name) {
+                localStorage.setItem('kd_pending_name', name);
+            }
+
+            return { error: null };
+        } catch (error) {
+            console.error("Erro no verifyOtp:", error);
             return { error };
         } finally {
             setLoading(false);
@@ -156,5 +183,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     };
 
-    return <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signOut }}>{children}</AuthContext.Provider>;
+    const value = React.useMemo(() => ({
+        user,
+        loading,
+        signIn,
+        verifyOtp,
+        signInWithGoogle,
+        signOut
+    }), [user, loading]);
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -2,7 +2,9 @@
 import React, { useState, useMemo } from 'react';
 import { CartItem, DeliveryZone, User, Extra, Product } from '../types';
 import { EXTRAS } from '../constants';
-import { X, Trash2, Plus, Minus, Printer, MessageCircle, CheckCircle2, ShoppingBag, PlusCircle, MinusCircle, FileText, MapPin, ChevronDown, ChevronUp, Sparkles, Package, Info, AlertCircle, Zap, ArrowRight } from 'lucide-react';
+import { X, Trash2, Plus, Minus, Printer, MessageCircle, CheckCircle2, ShoppingBag, PlusCircle, MinusCircle, FileText, MapPin, ChevronDown, ChevronUp, Sparkles, Package, Info, AlertCircle, Zap, ArrowRight, Banknote, CreditCard, Bitcoin, User as UserIcon } from 'lucide-react';
+
+type PaymentMethod = 'DINHEIRO' | 'CARTAO' | 'USDT';
 
 interface Props {
   cart: CartItem[];
@@ -15,8 +17,8 @@ interface Props {
   onRemove: (uid: string) => void;
   onToggleExtra: (uid: string, extra: Extra) => void;
   clearCart: () => void;
-  user: User;
-  onOrderComplete?: (total: number) => void;
+  user: User | null;
+  onOrderComplete?: (total: number, paymentMethod: PaymentMethod, guestData?: { name: string, phone: string }) => void;
   boxPrice?: number;
   minOrder?: number;
   onAddProduct?: (product: Product, size: string) => void;
@@ -24,6 +26,10 @@ interface Props {
 
 const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange, onClose, onUpdateQty, onRemove, onToggleExtra, clearCart, user, onOrderComplete, boxPrice = 100, minOrder = 0, onAddProduct }) => {
   const [expandedExtras, setExpandedExtras] = useState<Set<string>>(new Set());
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('DINHEIRO');
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [showGuestError, setShowGuestError] = useState(false);
 
   const hasPizza = cart.some(i => i.needsBox);
   const hasDrink = cart.some(i => !i.needsBox);
@@ -91,9 +97,9 @@ const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange
         </div>
         
         <div style="font-size: 12px; margin-bottom: 10px;">
-          <b>CLIENTE:</b> ${user.name}<br>
+          <b>CLIENTE:</b> ${user?.name || guestName || 'CONVIDADO'}<br>
           <b>ZONA:</b> ${zone?.name || 'RETIRADA'}<br>
-          <b>TEL:</b> ${user.phone}
+          <b>TEL:</b> ${user?.phone || guestPhone || ''}
         </div>
 
         <div style="border-bottom: 1px dashed black; padding-bottom: 10px; margin-bottom: 10px;">
@@ -132,11 +138,18 @@ const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange
   const handleWhatsApp = () => {
     if (isBelowMin) return;
 
+    const paymentLabels: Record<PaymentMethod, string> = {
+      'DINHEIRO': '💵 Dinheiro',
+      'CARTAO': '💳 Cartão',
+      'USDT': '₿ USDT (Crypto)'
+    };
+
     let msg = `*🍔 NOVO PEDIDO - KANTINHO DELÍCIA*\n`;
     msg += `--------------------------------\n`;
-    msg += `👤 *Cliente:* ${user.name}\n`;
-    msg += `📞 *WhatsApp:* ${user.phone}\n`;
+    msg += `👤 *Cliente:* ${user?.name || guestName || 'Convidado'}\n`;
+    msg += `📞 *WhatsApp:* ${user?.phone || guestPhone || ''}\n`;
     msg += `📍 *Zona:* ${zone ? zone.name : 'Retirada no Balcão'}\n`;
+    msg += `💳 *Pagamento:* ${paymentLabels[paymentMethod]}\n`;
     msg += `--------------------------------\n\n`;
     
     cart.forEach(item => {
@@ -161,15 +174,25 @@ const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange
     const url = `https://wa.me/2385999204?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
     
-    if (onOrderComplete) onOrderComplete(total);
+    if (onOrderComplete) {
+      onOrderComplete(total, paymentMethod, !user ? { name: guestName, phone: guestPhone } : undefined);
+    }
+  };
+
+  const handleFinalOrder = () => {
+    if (!user && (!guestName || !guestPhone)) {
+      setShowGuestError(true);
+      return;
+    }
+    handleWhatsApp();
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex justify-end no-print">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
       
-      <div className="relative w-full max-w-lg bg-slate-950 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
-        <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/50">
+      <div className="relative w-full max-w-lg glass h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-500">
+        <div className="flex items-center justify-between p-7 border-b border-white/5 bg-white/5 backdrop-blur-sm">
           <div>
             <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
               <ShoppingBag className="w-6 h-6 text-red-500" />
@@ -219,7 +242,7 @@ const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange
                 const isExpanded = expandedExtras.has(item.uniqueId);
                 
                 return (
-                  <div key={item.uniqueId} className="bg-slate-900/30 border border-slate-800 rounded-[32px] p-5 hover:bg-slate-900/50 transition-colors">
+                  <div key={item.uniqueId} className="glass border border-white/5 rounded-[36px] p-6 hover:bg-white/5 transition-all duration-500 group/item">
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -325,7 +348,7 @@ const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange
           )}
         </div>
 
-        <div className="p-8 bg-slate-900 border-t border-slate-800 space-y-6 rounded-t-[48px] shadow-2xl">
+        <div className="p-8 glass border-t border-white/10 space-y-6 rounded-t-[52px] shadow-2xl">
           <div className="space-y-2">
             <div className="flex justify-between text-slate-500 text-[10px] font-black uppercase tracking-widest">
               <span>Subtotal</span>
@@ -354,8 +377,76 @@ const CartSheet: React.FC<Props> = ({ cart, products, zone, notes, onNotesChange
             </div>
           </div>
 
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-1">Forma de Pagamento</p>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => setPaymentMethod('DINHEIRO')}
+                className={`p-4 rounded-2xl flex flex-col items-center gap-2 transition-all border ${
+                  paymentMethod === 'DINHEIRO' 
+                    ? 'bg-green-600/20 border-green-500 text-green-400' 
+                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <Banknote className="w-6 h-6" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Dinheiro</span>
+              </button>
+              <button
+                onClick={() => setPaymentMethod('CARTAO')}
+                className={`p-4 rounded-2xl flex flex-col items-center gap-2 transition-all border ${
+                  paymentMethod === 'CARTAO' 
+                    ? 'bg-blue-600/20 border-blue-500 text-blue-400' 
+                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <CreditCard className="w-6 h-6" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Cartão</span>
+              </button>
+              <button
+                onClick={() => setPaymentMethod('USDT')}
+                className={`p-4 rounded-2xl flex flex-col items-center gap-2 transition-all border ${
+                  paymentMethod === 'USDT' 
+                    ? 'bg-yellow-600/20 border-yellow-500 text-yellow-400' 
+                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <Bitcoin className="w-6 h-6" />
+                <span className="text-[10px] font-black uppercase tracking-wider">USDT</span>
+              </button>
+            </div>
+          </div>
+
+          {!user && (
+            <div className="space-y-4 p-5 bg-slate-950/40 border border-slate-800 rounded-3xl mb-2">
+              <p className="text-[10px] font-black text-red-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                <UserIcon className="w-3 h-3" /> Dados para Entrega
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <input 
+                  type="text" 
+                  placeholder="Seu Nome"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className={`bg-slate-900 border ${showGuestError && !guestName ? 'border-red-600' : 'border-slate-800'} rounded-2xl px-4 py-3 text-xs text-white outline-none focus:border-red-600`}
+                />
+                <input 
+                  type="tel" 
+                  placeholder="WhatsApp"
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
+                  className={`bg-slate-900 border ${showGuestError && !guestPhone ? 'border-red-600' : 'border-slate-800'} rounded-2xl px-4 py-3 text-xs text-white outline-none focus:border-red-600`}
+                />
+              </div>
+              {showGuestError && (!guestName || !guestPhone) && (
+                <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-1 italic">
+                  * Por favor preencha seu nome e telefone
+                </p>
+              )}
+            </div>
+          )}
+
           <button 
-            onClick={handleWhatsApp}
+            onClick={handleFinalOrder}
             disabled={cart.length === 0 || isBelowMin}
             className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black py-5 rounded-3xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl shadow-green-900/20"
           >

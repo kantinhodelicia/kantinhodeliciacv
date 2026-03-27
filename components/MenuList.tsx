@@ -89,23 +89,23 @@ const MenuList: React.FC<Props> = ({ products, selectedSize, onSelect, halfMode,
   return (
     <div className="space-y-12 relative">
       {/* Barra de Pesquisa */}
-      <div className="flex gap-3 animate-in slide-in-from-top-2">
+      <div className="flex gap-4 animate-in slide-in-from-top-4 duration-700">
         <div className="relative flex-1">
-          <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500">
-            <Search className="w-5 h-5" />
+          <div className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-500">
+            <Search className="w-5 h-5 group-focus-within:text-red-500 transition-colors" />
           </div>
           <input 
             type="text"
-            placeholder="Qual sabor você deseja?"
+            placeholder="O que você vai saborear hoje?"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-[32px] py-7 pl-16 pr-6 text-white focus:outline-none focus:border-red-500 transition-all font-medium backdrop-blur-sm shadow-xl"
+            className="w-full glass rounded-[36px] py-7 pl-16 pr-8 text-white focus:outline-none focus:border-red-500/50 transition-all font-medium shadow-2xl placeholder:text-slate-600"
           />
         </div>
         <button
           onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-          className={`p-6 rounded-[32px] border transition-all ${
-            showFavoritesOnly ? 'bg-red-600 border-red-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-red-500 shadow-xl'
+          className={`px-8 rounded-[36px] border transition-all duration-500 ${
+            showFavoritesOnly ? 'bg-red-600 border-red-500 text-white' : 'glass border-white/5 text-slate-500 hover:text-red-500'
           }`}
         >
           <Heart className={`w-6 h-6 ${showFavoritesOnly ? 'fill-current' : ''}`} />
@@ -160,7 +160,7 @@ const MenuList: React.FC<Props> = ({ products, selectedSize, onSelect, halfMode,
           const availableSizesList = ['PEQ', 'MEDIO', 'FAMILIAR', 'UN'].filter(s => !!p.prices[s]);
 
           return (
-            <div key={p.id} onClick={(e) => isAvailable && handleProductSelect(e, p)} className={`group relative flex flex-col rounded-[48px] border-2 transition-all duration-500 overflow-hidden ${!isAvailable ? 'opacity-40 grayscale pointer-events-none' : 'hover:-translate-y-3 shadow-xl'} ${isSelected ? 'border-red-600 bg-red-600/5' : 'border-slate-800 bg-slate-900/30'}`}>
+            <div key={p.id} onClick={(e) => isAvailable && handleProductSelect(e, p)} className={`group relative flex flex-col rounded-[52px] border transition-all duration-700 overflow-hidden ${!isAvailable ? 'opacity-40 grayscale pointer-events-none' : 'hover:-translate-y-4 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] shadow-2xl'} ${isSelected ? 'border-red-600 bg-red-600/10' : 'border-white/5 glass'}`}>
               <div className="relative aspect-[16/9] overflow-hidden">
                  <img src={p.image} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
@@ -222,4 +222,4 @@ const MenuList: React.FC<Props> = ({ products, selectedSize, onSelect, halfMode,
   );
 };
 
-export default MenuList;
+export default React.memo(MenuList);

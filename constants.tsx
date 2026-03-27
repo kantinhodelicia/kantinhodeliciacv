@@ -15,7 +15,7 @@ export const PIZZAS: ExtendedProduct[] = [
     prices: { FAMILIAR: 800, MEDIO: 750, PEQ: 500 }, 
     category: 'PIZZAS', 
     isPopular: true,
-    image: "https://images.unsplash.com/photo-1574071318508-1cdbad80ad38?auto=format&fit=crop&q=80&w=600"
+    image: "https://media.istockphoto.com/id/500291118/photo/delicious-mozzarella-pizza-slice-on-white-background.jpg?s=612x612&w=0&k=20&c=WlQo8-Tv3b7ll98Q5IhN0y-FMquldRvggyC0qHFsrDE="
   },
   { 
     id: '2', 
