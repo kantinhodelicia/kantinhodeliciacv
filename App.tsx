@@ -19,8 +19,13 @@ import { ShoppingBag, Gamepad2, Sparkles, Award, Lock, ShieldAlert, X, Tv, MapPi
 import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading, signOut } = useAuth();
   const [user, setUser] = useState<User | null>(authUser);
+
+  // Keep local user state in sync with AuthContext (Google login, OTP, email auth, etc.)
+  useEffect(() => {
+    setUser(authUser);
+  }, [authUser]);
 
   const [headerBg, setHeaderBg] = useState<string>(() => {
     return localStorage.getItem('kd_header_bg') || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=1200';
